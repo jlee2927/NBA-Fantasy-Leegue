@@ -216,3 +216,12 @@ __marimo__/
 
 # Streamlit
 .streamlit/secrets.toml
+
+# PuntFit data
+# Raw hoopR downloads (~17MB, re-fetchable with `python -m puntfit.fetch_nba`)
+data/hoopr/
+# Basketball Monster exports: licensed subscriber data, not ours to publish
+data/seasons/
+
+# macOS
+.DS_Store

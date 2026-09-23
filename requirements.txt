@@ -1,0 +1,12 @@
+pandas>=2.0
+numpy>=1.24
+requests>=2.28
+# pyarrow 19 cannot read the 2002-2020 hoopR files ("Repetition level histogram
+# size mismatch"); fastparquet reads all of them, so it is not optional.
+fastparquet>=2024.2
+pyarrow>=15
+# Basketball Monster .xls exports, used only by the legacy loader and the
+# parity check. Drop this once that loader goes.
+xlrd>=2.0
+flask>=3.0
+pytest>=8.0

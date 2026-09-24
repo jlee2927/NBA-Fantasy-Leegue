@@ -92,9 +92,21 @@ def test_suggest_builds_ranks_by_fit():
 
 
 # -------------------------------------------------------------- real data path
-def test_real_projection_set_is_eight_cat_until_the_turnover_export_lands():
+def test_real_projection_set_is_nine_cat():
+    """hoopR carries turnovers for every season, so the default format is
+    9-cat. Basketball Monster exports have none and degrade to 8-cat."""
     df, _ = V.load_projections(PROJECTIONS)
-    assert V.available_categories(df) == EIGHT_CAT
+    assert V.available_categories(df) == NINE_CAT
+    assert V.available_categories(df.drop(columns=["tov_pg"])) == EIGHT_CAT
+
+
+def test_turnovers_penalise_high_usage_players():
+    df, _ = V.load_projections(PROJECTIONS)
+    z, _ = V.value_players(df)
+    assert (z["tov"] < 0).any() and (z["tov"] > 0).any()
+    # the heaviest turnover load in the pool must score worst in the category
+    worst = df.loc[z.index].tov_pg.idxmax()
+    assert z.loc[worst, "tov"] == z["tov"].min()
 
 
 def test_every_projected_player_gets_a_value():

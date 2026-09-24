@@ -11,6 +11,7 @@ def _season(season, rows):
     for s in M.STATS:
         if s not in df:
             df[s] = 0.0
+    df[M.PLAYER] = df.name          # both loaders set the key column
     df["team"], df["pos"], df["inj"] = "X", "C", None
     return df
 
@@ -45,6 +46,32 @@ def test_minutes_projection_formula():
     df = pd.concat([_season(2021, rows(1000)), _season(2022, rows(2000)), _season(2023, rows(2500))])
     p = M.marcel(df, 2024, {s: 0 for s in M.STATS}, 300, 0, aging="none")
     assert p.loc["A", "proj_min"] == pytest.approx(0.5 * 2500 + 0.1 * 2000 + 300)
+
+
+def test_two_players_sharing_a_name_are_kept_apart():
+    """hoopR has 12 names covering two different people. Keying on name
+    merged Chris Johnson's 2013 (29 games) with another Chris Johnson's
+    (8 games) into a 37-game player who never existed."""
+    def rows(season):
+        return _season(season, [{"name": "Chris Johnson", "g": 29, "min": 285,
+                                 "pts": 117, "age": 27},
+                                {"name": "Chris Johnson", "g": 8, "min": 101,
+                                 "pts": 29, "age": 23}])
+    df = pd.concat([rows(2021), rows(2022), rows(2023)])
+    df[M.PLAYER] = list(range(2)) * 3          # same name, different ids
+
+    p = M.marcel(df, 2024, {s: 0 for s in M.STATS}, 0, 0, aging="none")
+    assert len(p) == 2
+    assert p["pts_rate"].round(6).tolist() == [round(117 / 285, 6), round(29 / 101, 6)]
+
+
+def test_stats_are_read_off_the_data_not_a_global():
+    """Basketball Monster exports have no turnovers; hoopR always does.
+    Loading one must not change what the other sees."""
+    with_tov = _season(2023, [{"name": "A", "g": 1, "min": 10, "age": 27}])
+    assert "tov" in M.stats_in(with_tov)
+    assert "tov" not in M.stats_in(with_tov.drop(columns=["tov"]))
+    assert "tov" in M.stats_in(with_tov)        # unchanged by the call above
 
 
 def test_tango_age_factor():

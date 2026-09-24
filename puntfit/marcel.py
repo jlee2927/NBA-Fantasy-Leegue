@@ -1,20 +1,31 @@
 """
 Marcel projections for PuntFit.
 
-Reads one Basketball Monster season export per season
-(data/seasons/Fantasy_YYYY-YYYY.xls), builds a delta-method age curve,
-backtests against held-out seasons to tune k (regression) and the minutes
-baseline, then projects the next season.
+Builds a delta-method age curve, backtests against held-out seasons to tune k
+(regression) and the playing-time baselines, then projects the next season.
+
+Two input sources, both reduced to the same frame by their loader:
+
+  hoopr (default)  data/nba_seasons.parquet, written by fetch_nba. 2002-2026,
+                   turnovers throughout, keyed on a stable athlete id. Gives
+                   22 backtest targets.
+  bm               Basketball Monster .xls exports. 2022-2026, top 234 players
+                   a season, no turnovers unless to/g was added to the export.
+                   Gives 2 backtest targets. Kept for the parity check.
 
 Usage:
-    python -m puntfit.marcel --seasons data/seasons --out data
+    python -m puntfit.marcel --source hoopr --out data
+    python -m puntfit.marcel --source bm --path data/seasons --out data
 
 Outputs:
     marcel_projections.csv / .json   next-season projections
     marcel_backtest.csv              error by stat and method
     marcel_age_curve.csv             multiplicative aging factor by age and stat
 
-Data notes (Basketball Monster export):
+Which categories are projected is read off the data by stats_in(), so the
+Basketball Monster path yields 8-cat and hoopR 9-cat with no switch to set.
+
+Data notes (Basketball Monster export only):
   * Stats are per game, so totals = per-game x games.
   * FGM/FTM are derived from fg% x fga, ft% x fta.
   * "Age" is age on the export date in EVERY sheet, not age during that
@@ -22,7 +33,7 @@ Data notes (Basketball Monster export):
   * Each sheet holds only the top-ranked players (234). A player missing
     from a season may have played outside that pool, so missing seasons are
     treated as "no information" (0 weight), not as 0 minutes played.
-  * No player ID and no turnovers column. Names are the join key.
+  * No player id, so names are the key on this path.
 """
 from __future__ import annotations
 
@@ -37,8 +48,13 @@ import pandas as pd
 
 EXPORT_DATE = date(2026, 9, 19)  # when the sheets were exported
 WEIGHTS = (5, 4, 3)              # Y-1, Y-2, Y-3
-STATS = ["pts", "tpm", "reb", "ast", "stl", "blk", "fgm", "fga", "ftm", "fta"]
+STATS = ("pts", "tpm", "reb", "ast", "stl", "blk", "fgm", "fga", "ftm", "fta", "tov")
 NEGATIVE_STATS = {"tov"}         # aging not applied (fewer is better)
+
+# Players are keyed on this column, not on their name. hoopR covers 12,368
+# player-seasons in which 12 names are shared by two different people, and
+# grouping those by name merges two careers into one player who never existed.
+PLAYER = "player"
 MIN_PAIR_MINUTES = 250           # delta-method pair minimum, each season
 MIN_EVAL_MINUTES = 500           # backtest: target-season minutes to be scored
 
@@ -94,15 +110,34 @@ def load_all(folder: Path) -> pd.DataFrame:
     if not files:
         raise FileNotFoundError(f"No 'Fantasy YYYY-YYYY.xls' files in {folder}")
     df = pd.concat([load_season(f) for f in files], ignore_index=True)
-    if "tov" in df.columns and "tov" not in STATS:
-        STATS.append("tov")
+    df[PLAYER] = df.name          # these exports carry no player id
     return df
+
+
+def load_hoopr(path: Path) -> pd.DataFrame:
+    """Season totals built by fetch_nba, keyed on the ESPN athlete id.
+
+    Carries turnovers for every season, so 9-cat needs no separate export.
+    """
+    df = pd.read_parquet(path)
+    df[PLAYER] = df.athlete_id
+    return df
+
+
+def stats_in(df: pd.DataFrame) -> list[str]:
+    """Categories this projection set actually supplies.
+
+    Basketball Monster exports have no turnovers unless to/g was added to the
+    export, so the category list is read off the data rather than assumed.
+    """
+    return [s for s in STATS if s in df.columns]
 
 
 def league_rates(df: pd.DataFrame) -> pd.DataFrame:
     """Per-minute league rate for each season (sum of stat / sum of minutes)."""
-    sums = df.groupby("season")[STATS + ["min"]].sum()
-    return sums[STATS].div(sums["min"], axis=0)
+    stats = stats_in(df)
+    sums = df.groupby("season")[stats + ["min"]].sum()
+    return sums[stats].div(sums["min"], axis=0)
 
 
 # ---------------------------------------------------------------- aging
@@ -117,14 +152,14 @@ def age_curve(df: pd.DataFrame, max_season: int) -> pd.DataFrame:
     Returns a one-year multiplicative factor for going from age a to a+1.
     """
     d = df[df.season <= max_season]
-    a = d.merge(d.assign(season=d.season - 1), on=["name", "season"], suffixes=("1", "2"))
+    a = d.merge(d.assign(season=d.season - 1), on=[PLAYER, "season"], suffixes=("1", "2"))
     a = a[(a.min1 >= MIN_PAIR_MINUTES) & (a.min2 >= MIN_PAIR_MINUTES)]
     a["w"] = 2 / (1 / a.min1 + 1 / a.min2)
     a["age_bin"] = np.floor(a.age1).astype(int)
 
     ages = np.arange(19, 41)
     out = pd.DataFrame(index=ages)
-    for s in STATS:
+    for s in stats_in(df):
         if s in NEGATIVE_STATS:
             out[s] = 1.0
             continue
@@ -164,19 +199,20 @@ def marcel(df: pd.DataFrame, target: int, k: dict, min_base: float, game_base: f
            aging: str = "delta", curve: pd.DataFrame | None = None) -> pd.DataFrame:
     """Project season `target` from target-1, -2, -3."""
     yrs = [target - 1, target - 2, target - 3]
+    stats = stats_in(df)
     lg = league_rates(df[df.season.isin(yrs)])
-    players = df[df.season.isin(yrs)].name.unique()
-    wide = df[df.season.isin(yrs)].pivot_table(index="name", columns="season",
-                                                values=STATS + ["min", "g"], aggfunc="sum")
+    players = df[df.season.isin(yrs)][PLAYER].unique()
+    wide = df[df.season.isin(yrs)].pivot_table(index=PLAYER, columns="season",
+                                               values=stats + ["min", "g"], aggfunc="sum")
     wide = wide.reindex(players).fillna(0.0)
 
     wmin = sum(w * wide["min"].get(y, 0) for w, y in zip(WEIGHTS, yrs))
     # league rate weighted the same way as the player's seasons
     wl = sum(WEIGHTS)
     lg_rate = {s: sum(w * lg.loc[y, s] for w, y in zip(WEIGHTS, yrs) if y in lg.index) / wl
-               for s in STATS}
+               for s in stats}
 
-    last = df[df.season.isin(yrs)].sort_values("season").groupby("name").last()
+    last = df[df.season.isin(yrs)].sort_values("season").groupby(PLAYER).last()
     age_now = last.age + (target - last.season)  # age on Feb 1 of target season
     age_now = age_now.reindex(players)
     # centre of the weighted inputs, used by the delta curve
@@ -184,7 +220,7 @@ def marcel(df: pd.DataFrame, target: int, k: dict, min_base: float, game_base: f
 
     out = pd.DataFrame(index=players)
     out["age"] = age_now
-    for s in STATS:
+    for s in stats:
         wstat = sum(w * wide[s].get(y, 0) for w, y in zip(WEIGHTS, yrs))
         rate = (wstat + k[s] * lg_rate[s]) / (wmin + k[s])
         if aging == "tango29":
@@ -207,7 +243,7 @@ def marcel(df: pd.DataFrame, target: int, k: dict, min_base: float, game_base: f
     # baked into proj_min. Season totals still use proj_min per the spec.
     wg = sum(w * wide["g"].get(y, 0) for w, y in zip(WEIGHTS, yrs))
     out["proj_mpg"] = wmin / wg.replace(0, np.nan)
-    for s in STATS:
+    for s in stats:
         out[s] = out[s + "_rate"] * out["proj_min"]
     return out
 
@@ -221,12 +257,12 @@ def score_rates(df, target, proj):
     """Minutes-weighted RMSE of per-36 rates, Marcel vs last season only.
     Scored on players present in the target season AND in Y-1, so both
     methods are compared on the same players."""
-    act = df[(df.season == target) & (df["min"] >= MIN_EVAL_MINUTES)].set_index("name")
-    prev = df[df.season == target - 1].set_index("name")
+    act = df[(df.season == target) & (df["min"] >= MIN_EVAL_MINUTES)].set_index(PLAYER)
+    prev = df[df.season == target - 1].set_index(PLAYER)
     names = act.index.intersection(prev.index).intersection(proj.index)
     a, p, l = act.loc[names], proj.loc[names], prev.loc[names]
     rows = []
-    for s in STATS:
+    for s in stats_in(df):
         truth = a[s] / a["min"] * 36
         rows.append({"target": target, "stat": s, "n": len(names),
                      "marcel": _rmse(p[s + "_rate"] * 36 - truth, a["min"]),
@@ -242,8 +278,8 @@ def score_rates(df, target, proj):
 
 
 def score_playing_time(df, target, proj):
-    act = df[df.season == target].set_index("name")
-    prev = df[df.season == target - 1].set_index("name")
+    act = df[df.season == target].set_index(PLAYER)
+    prev = df[df.season == target - 1].set_index(PLAYER)
     names = act.index.intersection(prev.index).intersection(proj.index)
     a, p, l = act.loc[names], proj.loc[names], prev.loc[names]
     return {
@@ -266,11 +302,12 @@ def tune(df):
     then the minutes and games baselines, then pick the aging method."""
     targets = backtest_targets(df)
     curves = {t: age_curve(df, t - 1) for t in targets}  # no leakage
+    stats = stats_in(df)
     k = {}
-    for s in STATS:
+    for s in stats:
         best = None
         for kk in K_GRID:
-            ks = {x: kk for x in STATS}
+            ks = {x: kk for x in stats}
             err = 0.0
             for t in targets:
                 p = marcel(df, t, ks, 0, 0, aging="none")
@@ -307,31 +344,34 @@ def tune(df):
 
 
 # ---------------------------------------------------------------- main
-def run(seasons_dir: Path, out_dir: Path) -> dict:
-    df = load_all(seasons_dir)
+def run(source: Path, out_dir: Path, kind: str = "hoopr") -> dict:
+    df = load_hoopr(source) if kind == "hoopr" else load_all(source)
     k, min_base, game_base, aging, aging_scores, report = tune(df)
     target = int(df.season.max()) + 1
     curve = age_curve(df, target - 1)
     proj = marcel(df, target, k, min_base, game_base, aging, curve)
 
     # keep only players who appeared last season (retired/overseas drop out)
-    last = df[df.season == target - 1].set_index("name")
+    stats = stats_in(df)
+    last = df[df.season == target - 1].set_index(PLAYER)
     proj = proj.loc[proj.index.intersection(last.index)].copy()
+    proj["name"] = last.name          # the key is an id, so carry the label
     proj["team"], proj["pos"], proj["inj"] = last.team, last.pos, last.inj
-    per_game = proj[[c + "_rate" for c in STATS]].mul(proj.proj_mpg, axis=0)
-    per_game.columns = [c + "_pg" for c in STATS]
+    per_game = proj[[c + "_rate" for c in stats]].mul(proj.proj_mpg, axis=0)
+    per_game.columns = [c + "_pg" for c in stats]
     proj = proj.join(per_game)
     proj["fg_pct"] = proj.fgm / proj.fga
     proj["ft_pct"] = proj.ftm / proj.fta
     proj = proj.sort_values("pts_pg", ascending=False)
-    proj.index.name = "name"
+    proj.index.name = PLAYER
 
     out_dir.mkdir(parents=True, exist_ok=True)
     proj.round(4).to_csv(out_dir / "marcel_projections.csv")
     report.round(4).to_csv(out_dir / "marcel_backtest.csv", index=False)
     curve.round(4).to_csv(out_dir / "marcel_age_curve.csv")
     k = {s: int(v) for s, v in k.items()}
-    params = {"target_season": f"{target - 1}-{target}", "k": k, "min_baseline": int(min_base),
+    params = {"source": kind, "categories": stats,
+              "target_season": f"{target - 1}-{target}", "k": k, "min_baseline": int(min_base),
               "games_baseline": int(game_base), "aging": aging,
               "aging_scores": {m: round(v, 4) for m, v in aging_scores.items()},
               "backtest_targets": [int(t) for t in backtest_targets(df)]}
@@ -343,7 +383,11 @@ def run(seasons_dir: Path, out_dir: Path) -> dict:
 
 if __name__ == "__main__":
     ap = argparse.ArgumentParser()
-    ap.add_argument("--seasons", default="data/seasons", type=Path)
+    ap.add_argument("--source", choices=("hoopr", "bm"), default="hoopr",
+                    help="hoopr: data/nba_seasons.parquet; bm: Basketball Monster .xls")
+    ap.add_argument("--path", type=Path, default=None,
+                    help="override the input path for the chosen source")
     ap.add_argument("--out", default="data", type=Path)
     a = ap.parse_args()
-    print(json.dumps(run(a.seasons, a.out), indent=1))
+    default = Path("data/nba_seasons.parquet") if a.source == "hoopr" else Path("data/seasons")
+    print(json.dumps(run(a.path or default, a.out, a.source), indent=1))

@@ -88,9 +88,11 @@ def load_season(path: Path) -> pd.DataFrame:
 
 
 def load_all(folder: Path) -> pd.DataFrame:
-    files = sorted(folder.glob("Fantasy_*.xls*"), key=lambda p: season_end_year(p.stem))
+    # Basketball Monster names its exports "Fantasy 2025-2026.xls" with a
+    # space; accept an underscore too, since the docs long said underscore.
+    files = sorted(folder.glob("Fantasy[ _]*.xls*"), key=lambda p: season_end_year(p.stem))
     if not files:
-        raise FileNotFoundError(f"No Fantasy_YYYY-YYYY.xls files in {folder}")
+        raise FileNotFoundError(f"No 'Fantasy YYYY-YYYY.xls' files in {folder}")
     df = pd.concat([load_season(f) for f in files], ignore_index=True)
     if "tov" in df.columns and "tov" not in STATS:
         STATS.append("tov")

@@ -225,3 +225,5 @@ data/seasons/
 
 # macOS
 .DS_Store
+# Kaggle NBA dump (~1.7GB), downloaded separately
+data/Kaggle Data Set/

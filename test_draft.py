@@ -208,6 +208,62 @@ def test_weighting_reorders_the_board(blocks_heavy):
     assert plain != smart
 
 
+def test_emphasis_scales_the_automatic_weight(blocks_heavy):
+    auto = blocks_heavy.category_weights(0)
+    blocks_heavy.set_emphasis(0, "stl", 2.0)
+    w = blocks_heavy.weights(0)
+    assert w["stl"] == pytest.approx(auto["stl"] * 2.0)
+    assert w["ast"] == pytest.approx(auto["ast"])      # untouched
+
+
+def test_zero_emphasis_takes_a_category_out_of_the_ranking(blocks_heavy):
+    blocks_heavy.set_emphasis(0, "ast", 0.0)
+    assert blocks_heavy.weights(0)["ast"] == 0.0
+
+
+def test_emphasis_multiplies_rather_than_replaces(blocks_heavy):
+    """Dialling a category up must not stop it tapering once it is won, or
+    'I want more steals' becomes 'chase steals forever'."""
+    blocks_heavy.set_emphasis(0, "blk", 2.0)
+    w = blocks_heavy.weights(0)
+    assert w["blk"] < 0.1          # still near zero: blocks are long since won
+    assert w["blk"] < w["ast"]
+
+
+def test_emphasis_is_capped(blocks_heavy):
+    from puntfit.draft import MAX_EMPHASIS
+    blocks_heavy.set_emphasis(0, "stl", 99.0)
+    assert blocks_heavy.emphasis[0]["stl"] == MAX_EMPHASIS
+    blocks_heavy.set_emphasis(0, "stl", -5.0)
+    assert blocks_heavy.emphasis[0]["stl"] == 0.0
+
+
+def test_an_unknown_category_cannot_be_emphasised(draft):
+    with pytest.raises(ValueError, match="not a category"):
+        draft.set_emphasis(0, "dunks", 1.5)
+
+
+def test_clearing_emphasis_restores_the_automatic_weights(blocks_heavy):
+    auto = blocks_heavy.category_weights(0).copy()
+    blocks_heavy.set_emphasis(0, "stl", 0.0)
+    assert blocks_heavy.weights(0)["stl"] != auto["stl"]
+    blocks_heavy.clear_emphasis(0)
+    pd.testing.assert_series_equal(blocks_heavy.weights(0), auto)
+
+
+def test_each_team_keeps_its_own_emphasis(draft):
+    draft.make_pick(draft.recommend().index[0])
+    draft.set_emphasis(0, "stl", 2.0)
+    assert 1 not in draft.emphasis
+
+
+def test_emphasis_reorders_the_board(blocks_heavy):
+    before = list(blocks_heavy.recommend(0, limit=8).index)
+    blocks_heavy.set_emphasis(0, "stl", 2.0)
+    blocks_heavy.set_emphasis(0, "blk", 0.0)
+    assert list(blocks_heavy.recommend(0, limit=8).index) != before
+
+
 def test_an_empty_roster_has_nothing_to_lean_on(draft):
     w = draft.category_weights(0)
     assert (w == 1.0).all()

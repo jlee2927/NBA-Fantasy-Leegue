@@ -22,7 +22,7 @@ from flask import Flask, abort, redirect, render_template, request, url_for
 
 from . import managers as Mg
 from .categories import FORMATS
-from .draft import DraftState, League
+from .draft import MAX_EMPHASIS, NEUTRAL_EMPHASIS, DraftState, League
 from .fetch_injuries import label as label_injuries
 from .valuation import load_projections
 
@@ -120,7 +120,10 @@ def room(room_id: str):
         board=board, detail=detail, cats=[c for c in board.columns if c != "total"],
         mine=mine, totals=totals, suggestions=suggestions, auto=auto,
         n_punts=n_punts, max_punts=state.league.max_punts,
-        weights=state.category_weights(seat) if mine else None,
+        weights=state.weights(seat) if mine else None,
+        auto_weights=state.category_weights(seat) if mine else None,
+        emphasis=state.emphasis.get(seat, {}),
+        max_emphasis=MAX_EMPHASIS,
         my_turn=state.on_the_clock == seat or room["mode"] == "live",
         recent=list(reversed(state.picks[-12:])),
     )
@@ -135,6 +138,25 @@ def pick(room_id: str):
     except ValueError as e:
         return redirect(url_for("room", room_id=room_id, error=str(e)))
     _advance(room)
+    return redirect(url_for("room", room_id=room_id))
+
+
+@app.post("/draft/<room_id>/emphasis")
+def emphasis(room_id: str):
+    """Per-category emphasis, multiplied over the automatic weighting."""
+    room = _room(room_id)
+    state: DraftState = room["state"]
+    if request.form.get("reset"):
+        state.clear_emphasis(room["seat"])
+        return redirect(url_for("room", room_id=room_id))
+    for category in state.league.categories:
+        raw = request.form.get(f"w_{category}")
+        if raw is None:
+            continue
+        try:
+            state.set_emphasis(room["seat"], category, float(raw))
+        except ValueError:
+            continue
     return redirect(url_for("room", room_id=room_id))
 
 

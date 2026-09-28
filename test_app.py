@@ -129,6 +129,44 @@ def test_a_confirmed_build_drops_those_columns(client):
     assert ">pts<" in header
 
 
+# --------------------------------------------------------------- emphasis
+def _with_a_roster(client):
+    room = _start(client)
+    for _ in range(3):
+        client.post(f"{room}/pick", data={"player": _first_player(client, room)})
+    return room
+
+
+def test_the_chase_panel_appears_once_you_have_players(client):
+    page = _text(client, _with_a_roster(client))
+    assert "What you&#39;re chasing" in page or "What you're chasing" in page
+    assert 'name="w_pts"' in page
+
+
+def test_adjusting_a_category_changes_the_board(client):
+    room = _with_a_roster(client)
+    before = client.get(room).data.decode().split("Best available")[1]
+    client.post(f"{room}/emphasis", data={"w_stl": "2", "w_blk": "0"})
+    after = client.get(room).data.decode().split("Best available")[1]
+    assert before != after
+
+
+def test_reset_restores_the_automatic_weights(client):
+    room = _with_a_roster(client)
+    plain = client.get(room).data.decode().split("Best available")[1]
+    client.post(f"{room}/emphasis", data={"w_stl": "2", "w_blk": "0"})
+    assert client.get(room).data.decode().split("Best available")[1] != plain
+    client.post(f"{room}/emphasis", data={"reset": "1"})
+    assert client.get(room).data.decode().split("Best available")[1] == plain
+
+
+def test_a_nonsense_slider_value_is_ignored(client):
+    room = _with_a_roster(client)
+    r = client.post(f"{room}/emphasis", data={"w_stl": "banana"})
+    assert r.status_code == 302
+    assert client.get(room).status_code == 200
+
+
 def test_an_oversized_build_posted_directly_is_trimmed(client):
     room = _start(client)
     client.post(f"{room}/pick", data={"player": _first_player(client, room)})

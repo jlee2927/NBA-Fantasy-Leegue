@@ -27,6 +27,12 @@ from .valuation import DEFAULT_POOL, punt_value, value_players
 # chasing, measured in standard deviations of a team's season total.
 CONTEST_WIDTH = 1.0
 
+# A manager's own emphasis multiplies the automatic weighting. 1.0 leaves it
+# alone, 0 ignores the category, and the cap stops one category swamping the
+# board the way an unbounded multiplier would.
+NEUTRAL_EMPHASIS = 1.0
+MAX_EMPHASIS = 2.0
+
 
 @dataclass(frozen=True)
 class League:
@@ -68,6 +74,7 @@ class DraftState:
     pool_size: int = DEFAULT_POOL
     picks: list[Pick] = field(default_factory=list)
     punts: dict[int, tuple[str, ...]] = field(default_factory=dict)
+    emphasis: dict[int, dict[str, float]] = field(default_factory=dict)
     _values: dict[tuple[str, ...], pd.DataFrame] = field(default_factory=dict, repr=False)
 
     # ------------------------------------------------------------- position
@@ -151,6 +158,30 @@ class DraftState:
         standing = totals / math.sqrt(self.league.rounds)
         return np.exp(-0.5 * (standing / CONTEST_WIDTH) ** 2)
 
+    def weights(self, team: int) -> pd.Series:
+        """The automatic weighting with the user's own emphasis applied.
+
+        Emphasis multiplies rather than replaces, so a category a manager has
+        dialled up still tapers off once it is safely won. Replacing the
+        automatic value outright would turn "I want more steals" into "chase
+        steals forever", which is the behaviour this weighting exists to avoid.
+        """
+        auto = self.category_weights(team)
+        manual = self.emphasis.get(team)
+        if not manual:
+            return auto
+        return auto * pd.Series({c: manual.get(c, NEUTRAL_EMPHASIS)
+                                 for c in auto.index})
+
+    def set_emphasis(self, team: int, category: str, value: float) -> None:
+        if category not in self.league.categories:
+            raise ValueError(f"not a category in this league: {category}")
+        value = float(np.clip(value, 0.0, MAX_EMPHASIS))
+        self.emphasis.setdefault(team, {})[category] = value
+
+    def clear_emphasis(self, team: int) -> None:
+        self.emphasis.pop(team, None)
+
     def recommend(self, team: int | None = None, limit: int = 10,
                   contest: bool = True) -> pd.DataFrame:
         """Best available under that team's build, best first.
@@ -164,7 +195,7 @@ class DraftState:
         board = z.loc[z.index.intersection(self.available, sort=False)]
 
         if contest and self.roster(team):
-            w = self.category_weights(team)
+            w = self.weights(team)
             board = board.assign(total=(board[w.index] * w).sum(axis=1) / w.sum())
             board = board.sort_values("total", ascending=False)
         return board.head(limit)

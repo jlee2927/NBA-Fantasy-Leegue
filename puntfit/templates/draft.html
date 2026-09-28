@@ -111,17 +111,38 @@
           {% endfor %}
         </table>
         {% if totals is not none %}
-        <h2 style="margin-top:12px">Category totals</h2>
-        <table>
-          {% for c in cats %}
-          <tr>
-            <td>{{ c }}</td>
-            <td class="n" style="color:{{ '#2a78d6' if totals[c].sum() >= 0 else '#d03b3b' }}">
-              {{ '%+.1f'|format(totals[c].sum()) }}
-            </td>
-          </tr>
-          {% endfor %}
-        </table>
+        <h2 style="margin-top:14px">What you're chasing</h2>
+        <p class="muted" style="font-size:12px; margin:-4px 0 8px">
+          Set automatically from where you stand &mdash; a category you have
+          locked up or lost stops being chased. Drag to override.
+        </p>
+        <form method="post" action="{{ url_for('emphasis', room_id=room_id) }}">
+          <table>
+            <thead><tr>
+              <th>cat</th><th class="n">you</th><th class="n">chase</th><th>adjust</th>
+            </tr></thead>
+            {% for c in cats %}
+            <tr>
+              <td>{{ c }}</td>
+              <td class="n" style="color:{{ '#2a78d6' if totals[c].sum() >= 0 else '#d03b3b' }}">
+                {{ '%+.1f'|format(totals[c].sum()) }}
+              </td>
+              <td class="n muted" title="automatic {{ '%.2f'|format(auto_weights[c]) }}">
+                {{ '%.2f'|format(weights[c]) }}
+              </td>
+              <td>
+                <input type="range" name="w_{{ c }}" min="0" max="{{ max_emphasis }}"
+                       step="0.25" style="width:88px; vertical-align:middle"
+                       value="{{ emphasis.get(c, 1.0) }}">
+              </td>
+            </tr>
+            {% endfor %}
+          </table>
+          <div style="margin-top:8px; display:flex; gap:6px">
+            <button class="go" type="submit">Apply</button>
+            <button type="submit" name="reset" value="1">Reset</button>
+          </div>
+        </form>
         {% endif %}
       {% else %}
         <p class="muted">Nothing yet. Draft someone and PuntFit will suggest a build.</p>

@@ -88,6 +88,45 @@ def test_shortened_seasons_are_recorded_at_their_real_length():
     assert lengths[2019] == 82
 
 
+ROSTER = CACHE / "crosswalk" / "nba_player_crosswalk_2027.parquet"
+needs_roster = pytest.mark.skipif(not ROSTER.exists(), reason="roster file not cached")
+
+
+@needs_roster
+def test_the_roster_is_keyed_on_the_same_athlete_id():
+    roster = F.current_roster(CACHE, 2027)
+    assert roster.index.name == "athlete_id"
+    assert not roster.index.duplicated().any()
+    assert roster.team.notna().all() and roster.pos.notna().all()
+
+
+@needs_roster
+def test_players_who_missed_a_whole_season_are_still_rostered():
+    """The bug this filter replaced: "played last season" deleted Lillard,
+    Irving and Haliburton, who each sat out 2025-26 injured and are all
+    drafted in 2026-27."""
+    roster = F.current_roster(CACHE, 2027)
+    seasons = pd.read_parquet(SEASONS)
+    played_last = set(seasons[seasons.season == 2026].athlete_id)
+    for who in ("Damian Lillard", "Kyrie Irving", "Tyrese Haliburton"):
+        athlete = int(seasons[seasons.name == who].athlete_id.iloc[0])
+        assert athlete not in played_last, who      # did not play in 2025-26
+        assert athlete in roster.index, who         # but is on a 2026-27 roster
+
+
+@needs_cache
+@needs_roster
+def test_the_draft_board_carries_those_players():
+    import json
+    board = json.loads((Path(__file__).parent / "data" /
+                        "marcel_projections.json").read_text())
+    assert board["params"]["roster_filtered"] is True
+    names = {p["name"] for p in board["players"]}
+    for who in ("Damian Lillard", "Kyrie Irving", "Tyrese Haliburton"):
+        assert who in names, who
+    assert all(p["team"] and p["pos"] for p in board["players"])
+
+
 @needs_cache
 def test_every_player_season_has_an_age_and_turnovers():
     d = pd.read_parquet(SEASONS)

@@ -352,19 +352,36 @@ def tune(df):
 
 
 # ---------------------------------------------------------------- main
-def run(source: Path, out_dir: Path, kind: str = "hoopr") -> dict:
+def run(source: Path, out_dir: Path, kind: str = "hoopr",
+        roster: pd.DataFrame | None = None) -> dict:
     df = load_hoopr(source) if kind == "hoopr" else load_all(source)
     k, min_base, game_base, aging, aging_scores, report = tune(df)
     target = int(df.season.max()) + 1
     curve = age_curve(df, target - 1)
     proj = marcel(df, target, k, min_base, game_base, aging, curve)
 
-    # keep only players who appeared last season (retired/overseas drop out)
     stats = stats_in(df)
-    last = df[df.season == target - 1].set_index(PLAYER)
-    proj = proj.loc[proj.index.intersection(last.index)].copy()
-    proj["name"] = last.name          # the key is an id, so carry the label
-    proj["team"], proj["pos"], proj["inj"] = last.team, last.pos, last.inj
+    # Whatever we last saw of each player, for anyone the roster does not name.
+    known = df.sort_values("season").groupby(PLAYER)[["name", "team", "pos"]].last()
+
+    if roster is None:
+        # No roster to consult, so fall back to "appeared last season". This
+        # drops anyone who missed the whole year injured.
+        keep = df[df.season == target - 1][PLAYER].unique()
+        team, pos, name = known.team, known.pos, known.name
+    else:
+        # Everyone rostered for the coming season who has enough history to
+        # project. Rookies with no NBA seasons are absent by construction and
+        # are WS2's problem, not this filter's.
+        keep = roster.index
+        team = roster.team.combine_first(known.team)
+        pos = roster.pos.combine_first(known.pos)
+        name = known.name.combine_first(roster.name)
+
+    proj = proj.loc[proj.index.intersection(keep)].copy()
+    proj["name"] = name               # the key is an id, so carry the label
+    proj["team"], proj["pos"] = team, pos
+    proj["inj"] = None
     per_game = proj[[c + "_rate" for c in stats]].mul(proj.proj_mpg, axis=0)
     per_game.columns = [c + "_pg" for c in stats]
     proj = proj.join(per_game)
@@ -379,6 +396,7 @@ def run(source: Path, out_dir: Path, kind: str = "hoopr") -> dict:
     curve.round(4).to_csv(out_dir / "marcel_age_curve.csv")
     k = {s: int(v) for s, v in k.items()}
     params = {"source": kind, "categories": stats,
+              "roster_filtered": roster is not None,
               "target_season": f"{target - 1}-{target}", "k": k, "min_baseline": int(min_base),
               "games_baseline": int(game_base), "aging": aging,
               "aging_scores": {m: round(v, 4) for m, v in aging_scores.items()},
@@ -396,6 +414,15 @@ if __name__ == "__main__":
     ap.add_argument("--path", type=Path, default=None,
                     help="override the input path for the chosen source")
     ap.add_argument("--out", default="data", type=Path)
+    ap.add_argument("--cache", default="data/hoopr", type=Path)
+    ap.add_argument("--roster-season", default=2027, type=int,
+                    help="season whose NBA rosters decide who makes the board")
+    ap.add_argument("--no-roster", action="store_true",
+                    help="keep anyone who played last season instead")
     a = ap.parse_args()
     default = Path("data/nba_seasons.parquet") if a.source == "hoopr" else Path("data/seasons")
-    print(json.dumps(run(a.path or default, a.out, a.source), indent=1))
+    roster = None
+    if a.source == "hoopr" and not a.no_roster:
+        from .fetch_nba import current_roster
+        roster = current_roster(a.cache, a.roster_season)
+    print(json.dumps(run(a.path or default, a.out, a.source, roster), indent=1))

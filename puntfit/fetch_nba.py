@@ -83,6 +83,33 @@ def cached(kind: str, season: int, cache: Path, refresh: bool = False) -> Path:
     return path
 
 
+def current_roster(cache: Path, season: int, refresh: bool = False) -> pd.DataFrame:
+    """Who is on an NBA roster for `season`, keyed on athlete_id.
+
+    Needed because "played last season" is the wrong test for who belongs on a
+    draft board. A player who missed a whole year injured is still drafted the
+    next one - Lillard and Irving both sat out 2025-26 and both are rostered
+    for 2026-27 - while plenty of players who did appear last season have since
+    retired or gone overseas. This file answers the question actually being
+    asked, and carries the player's current team and position with it.
+    """
+    path = cache / "crosswalk" / f"nba_player_crosswalk_{season}.parquet"
+    if not path.exists() or refresh:
+        path.parent.mkdir(parents=True, exist_ok=True)
+        r = requests.get(f"{REPO}/crosswalk/parquet/{path.name}", timeout=120)
+        r.raise_for_status()
+        path.write_bytes(r.content)
+
+    raw = _read_parquet(path).dropna(subset=["espn_athlete_id"])
+    out = pd.DataFrame({
+        "team": raw.team_abbreviation.values,
+        "pos": raw.espn_position.values,
+        "name": raw.espn_full_name.values,
+    }, index=raw.espn_athlete_id.astype("int64").values)
+    out.index.name = "athlete_id"
+    return out[~out.index.duplicated()]
+
+
 def birthdates(cache: Path, seasons: range, refresh: bool = False) -> pd.DataFrame:
     """One row per player: birthdate only, unioned over every season file."""
     frames = []

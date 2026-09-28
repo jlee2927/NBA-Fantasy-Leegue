@@ -1,0 +1,44 @@
+# Backtest configuration. Every window, target range and holdout lives here,
+# so none of it is buried in code.
+
+[data]
+source = "data/nba_seasons.parquet"
+
+[backtest]
+# Marcel projects a season from the three before it, so the earliest target is
+# the fourth season in the data.
+min_history = 3
+
+# Never used for tuning, at any stage. Kept back as the final out-of-sample
+# check, so the headline number is one the parameters have never seen.
+holdout = 2026
+
+# A target is only scored once this many earlier targets exist to tune on.
+# Below that the tuning sample is too thin to mean anything.
+min_prior_targets = 4
+
+[structural]
+# The k regression constants and the aging method. These describe how basketball
+# works - how much a season of evidence is worth, how players age - and should
+# not swing season to season, so they get every season before the target.
+# window = 0 means exactly that; a positive number limits it to that many.
+window = 0
+
+[regime]
+# The minutes and games baselines. These track how the league is behaving right
+# now: load management, roster sizes and schedule density all move them, so a
+# long window would average across eras that no longer apply.
+window = 5
+
+# 0 gives every season in the window equal weight. A positive number is a
+# half-life in seasons: at 2, a season four years back counts a quarter as much
+# as last season.
+recency_halflife = 0
+
+[stability]
+# Structural parameters are refit on an early and a late window and compared.
+# If they disagree sharply, the long window is mixing incompatible eras and the
+# structural/regime split is drawn in the wrong place.
+early_through = 2015
+late_from = 2016
+flag_relative_change = 0.5

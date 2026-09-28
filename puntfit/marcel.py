@@ -60,7 +60,10 @@ MIN_EVAL_MINUTES = 500           # backtest: target-season minutes to be scored
 
 K_GRID = [0, 500, 1000, 1500, 2500, 4000, 6000, 9000, 13000, 20000]
 MIN_BASE_GRID = list(range(0, 1601, 100))
-GAME_BASE_GRID = list(range(0, 51, 2))
+# The games baseline is a share of the schedule, not a count, so it means the
+# same thing in a 66-game lockout year as in an 82-game one.
+GAME_BASE_GRID = [round(x / 40, 3) for x in range(0, 25)]
+FULL_SEASON = 82
 
 
 # ---------------------------------------------------------------- loading
@@ -111,6 +114,7 @@ def load_all(folder: Path) -> pd.DataFrame:
         raise FileNotFoundError(f"No 'Fantasy YYYY-YYYY.xls' files in {folder}")
     df = pd.concat([load_season(f) for f in files], ignore_index=True)
     df[PLAYER] = df.name          # these exports carry no player id
+    df["g_share"] = df.g / FULL_SEASON   # every season in these exports is 82 games
     return df
 
 
@@ -203,7 +207,8 @@ def marcel(df: pd.DataFrame, target: int, k: dict, min_base: float, game_base: f
     lg = league_rates(df[df.season.isin(yrs)])
     players = df[df.season.isin(yrs)][PLAYER].unique()
     wide = df[df.season.isin(yrs)].pivot_table(index=PLAYER, columns="season",
-                                               values=stats + ["min", "g"], aggfunc="sum")
+                                               values=stats + ["min", "g", "g_share"],
+                                               aggfunc="sum")
     wide = wide.reindex(players).fillna(0.0)
 
     wmin = sum(w * wide["min"].get(y, 0) for w, y in zip(WEIGHTS, yrs))
@@ -235,9 +240,12 @@ def marcel(df: pd.DataFrame, target: int, k: dict, min_base: float, game_base: f
         out[s + "_rate"] = rate * adj
 
     m1, m2 = wide["min"].get(yrs[0], 0), wide["min"].get(yrs[1], 0)
-    g1, g2 = wide["g"].get(yrs[0], 0), wide["g"].get(yrs[1], 0)
     out["proj_min"] = 0.5 * m1 + 0.1 * m2 + min_base
-    out["proj_g"] = np.minimum(82, 0.5 * g1 + 0.1 * g2 + game_base)
+    # Games are carried through as a share of the schedule the player's team
+    # actually played, so the 66-game lockout and the two 72-game seasons feed
+    # the baseline on the same footing as a full year.
+    s1, s2 = wide["g_share"].get(yrs[0], 0), wide["g_share"].get(yrs[1], 0)
+    out["proj_g"] = np.clip(0.5 * s1 + 0.1 * s2 + game_base, 0, 1) * FULL_SEASON
     # Minutes per game is projected on its own (5/4/3 weighted by games) so
     # per-game stats are not dragged down by the games-missed regression
     # baked into proj_min. Season totals still use proj_min per the spec.

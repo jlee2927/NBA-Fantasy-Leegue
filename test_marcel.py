@@ -12,6 +12,7 @@ def _season(season, rows):
         if s not in df:
             df[s] = 0.0
     df[M.PLAYER] = df.name          # both loaders set the key column
+    df["g_share"] = df.g / M.FULL_SEASON
     df["team"], df["pos"], df["inj"] = "X", "C", None
     return df
 

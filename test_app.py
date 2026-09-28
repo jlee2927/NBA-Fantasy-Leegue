@@ -67,6 +67,28 @@ def test_a_duplicate_pick_is_rejected_without_crashing(client):
     assert client.get(room).status_code == 200
 
 
+def test_draft_position_is_drawn_at_random_by_default(client):
+    """Drafting from the same seat every mock only teaches that seat."""
+    seats = set()
+    for seed in range(20):
+        room = _start(client, seat="random", seed=str(seed))
+        page = _text(client, room)
+        slot = page.split("you are team ")[1].split(" of ")[0]
+        seats.add(int(slot))
+    assert len(seats) > 1, "random should not keep landing on one seat"
+    assert all(1 <= s <= 12 for s in seats)
+
+
+def test_a_chosen_draft_position_is_respected(client):
+    page = _text(client, _start(client, seat="9"))
+    assert "you are team 9 of 12" in page
+
+
+def test_a_seat_past_the_league_size_is_pulled_back(client):
+    page = _text(client, _start(client, teams="8", seat="14"))
+    assert "you are team 8 of 8" in page
+
+
 def test_live_mode_does_not_draft_for_you(client):
     """Every seat is entered by hand, so opening the room must not advance it."""
     assert b"No picks yet" in client.get(_start(client, mode="live")).data

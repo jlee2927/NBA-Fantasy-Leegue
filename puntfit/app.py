@@ -68,9 +68,16 @@ def create():
     players, _ = _load()
     form = request.form
     teams = int(form.get("teams", 12))
-    seat = min(int(form.get("seat", 1)) - 1, teams - 1)
     mode = form.get("mode", "mock")
     seed = int(form.get("seed") or random.randrange(1_000_000))
+
+    # Drawing for position is how a real room starts, and drafting from the
+    # same seat every time teaches only that seat. Random is the default.
+    wanted = form.get("seat", "random")
+    if wanted == "random":
+        seat = random.Random(seed).randrange(teams)
+    else:
+        seat = min(max(int(wanted), 1), teams) - 1
 
     league = League(teams=teams, rounds=int(form.get("rounds", 13)),
                     categories=FORMATS[form.get("format", "9cat")])

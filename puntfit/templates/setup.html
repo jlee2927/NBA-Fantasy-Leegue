@@ -25,7 +25,12 @@
       </select>
     </label>
     <label>Rounds<br><input name="rounds" type="number" value="13" min="1" max="20" size="3"></label>
-    <label>My pick<br><input name="seat" type="number" value="1" min="1" max="14" size="3"></label>
+    <label>My pick<br>
+      <select name="seat">
+        <option value="random" selected>Random</option>
+        {% for n in range(1, 15) %}<option value="{{ n }}">{{ n }}</option>{% endfor %}
+      </select>
+    </label>
     <label>Format<br>
       <select name="format">
         {% for f in formats %}<option value="{{ f }}">{{ f }}</option>{% endfor %}

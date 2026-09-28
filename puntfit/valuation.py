@@ -101,7 +101,11 @@ def value_players(df: pd.DataFrame, cats=NINE_CAT,
         pool = nxt
 
     z = z_scores(category_values(df, cats, pool), cats, pool)
-    z["total"] = z[list(cats)].sum(axis=1)
+    # Mean rather than sum, matching Basketball Monster's "Value" column. The
+    # ordering is identical either way, but a mean stays comparable across
+    # formats: summing gives 9-cat scores an extra category of headroom over
+    # 8-cat ones, and punting 3 categories would deflate every score.
+    z["total"] = z[list(cats)].mean(axis=1)
     return z.sort_values("total", ascending=False), pool
 
 
@@ -134,6 +138,75 @@ def suggest_builds(df: pd.DataFrame, player: str, n_punts: int, cats=NINE_CAT,
     return pd.DataFrame(rows).sort_values("value", ascending=False).head(top)
 
 
+# Basketball Monster's column names for the per-category values, so the board
+# reads the same way to anyone who already uses their sheet.
+VALUE_LABEL = {"pts": "pV", "tpm": "3V", "reb": "rV", "ast": "aV", "stl": "sV",
+               "blk": "bV", "tov": "toV", "fg": "fg%V", "ft": "ft%V"}
+RATE_LABEL = {"pts": "p/g", "tpm": "3/g", "reb": "r/g", "ast": "a/g",
+              "stl": "s/g", "blk": "b/g", "tov": "to/g"}
+
+
+def player_table(df: pd.DataFrame, z: pd.DataFrame, cats) -> pd.DataFrame:
+    """Per-game production beside each category's value, then the scalar.
+
+    Laid out like the Basketball Monster export: the rate columns first, then
+    one value column per category, then Value.
+    """
+    out = pd.DataFrame(index=z.index)
+    out["Team"] = df.team
+    out["Pos"] = df.pos
+    out["Age"] = df.age.round(1)
+    out["g"] = df.proj_g.round(0)
+    out["m/g"] = df.proj_mpg.round(1)
+    for c in cats:
+        if c in RATE_LABEL:
+            out[RATE_LABEL[c]] = df[f"{c}_pg"].round(1)
+    out["fg%"] = df.fg_pct.round(3)
+    out["ft%"] = df.ft_pct.round(3)
+    for c in cats:
+        out[VALUE_LABEL[c]] = z[c].round(2)
+    out["Value"] = z["total"].round(2)
+    return out
+
+
+def _shade(v: float, cap: float = 3.0) -> str:
+    """Green above average, red below, deepening with distance from it."""
+    if pd.isna(v):
+        return ""
+    weight = min(abs(v) / cap, 1.0) * 0.75
+    r, g, b = (34, 150, 83) if v >= 0 else (200, 52, 52)
+    return f"background-color: rgba({r},{g},{b},{weight:.2f})"
+
+
+def write_board(table: pd.DataFrame, out: Path, cats, title: str) -> None:
+    value_cols = [VALUE_LABEL[c] for c in cats] + ["Value"]
+    head = "".join(f"<th>{c}</th>" for c in ["#", "Player", *table.columns])
+    rows = []
+    for i, (name, r) in enumerate(table.iterrows(), 1):
+        cells = [f"<td class=r>{i}</td>", f"<td class=name>{name}</td>"]
+        for col in table.columns:
+            style = f' style="{_shade(r[col])}"' if col in value_cols else ""
+            cls = " class=r" if col in value_cols or isinstance(r[col], float) else ""
+            cells.append(f"<td{cls}{style}>{r[col]}</td>")
+        rows.append("<tr>" + "".join(cells) + "</tr>")
+    out.parent.mkdir(parents=True, exist_ok=True)
+    out.write_text(f"""<!doctype html><meta charset=utf-8>
+<title>{title}</title>
+<style>
+ body{{font:13px/1.4 -apple-system,Segoe UI,sans-serif;margin:24px;color:#111;background:#fff}}
+ h1{{font-size:17px;margin:0 0 4px}} p{{color:#666;margin:0 0 16px}}
+ table{{border-collapse:collapse}} th,td{{padding:3px 7px;border-bottom:1px solid #eee;white-space:nowrap}}
+ th{{position:sticky;top:0;background:#fafafa;text-align:left;font-weight:600;border-bottom:2px solid #ddd}}
+ td.r{{text-align:right;font-variant-numeric:tabular-nums}}
+ td.name{{font-weight:500}} tr:hover td{{background:#f6f9ff}}
+</style>
+<h1>{title}</h1>
+<p>Each value column is standard deviations from the draft-pool average, so
+every category carries equal weight. Value is their mean.</p>
+<table><thead><tr>{head}</tr></thead><tbody>{''.join(rows)}</tbody></table>
+""")
+
+
 def write_report(df: pd.DataFrame, z: pd.DataFrame, cats, params: dict,
                  out: Path, limit: int = 150) -> None:
     fmt = "9-cat" if "tov" in cats else "8-cat (no turnovers in the projection set)"
@@ -162,11 +235,21 @@ if __name__ == "__main__":
     ap.add_argument("--projections", default="data/marcel_projections.json", type=Path)
     ap.add_argument("--out", default="docs/ranking-baseline.md", type=Path)
     ap.add_argument("--pool", default=DEFAULT_POOL, type=int)
+    ap.add_argument("--values", default="data/player_values.csv", type=Path)
+    ap.add_argument("--board", default="docs/draft-board.html", type=Path)
+    ap.add_argument("--limit", default=200, type=int)
     a = ap.parse_args()
 
     df, params = load_projections(a.projections)
     cats = available_categories(df)
     z, pool = value_players(df, cats, a.pool)
     write_report(df, z, cats, params, a.out)
+
+    table = player_table(df, z, cats)
+    table.to_csv(a.values)
+    fmt = "9-cat" if "tov" in cats else "8-cat"
+    write_board(table.head(a.limit), a.board, cats,
+                f"PuntFit draft board - {params.get('target_season', '')} ({fmt})")
     print(json.dumps({"players": len(df), "categories": list(cats),
-                      "pool": len(pool), "report": str(a.out)}, indent=1))
+                      "pool": len(pool), "report": str(a.out),
+                      "values": str(a.values), "board": str(a.board)}, indent=1))

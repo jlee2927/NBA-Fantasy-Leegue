@@ -1,0 +1,42 @@
+<!doctype html>
+<html lang="en">
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>{% block title %}PuntFit{% endblock %}</title>
+<style>
+  :root {
+    --ink: #111; --muted: #6b6b6b; --line: #e6e6e6; --bg: #fff;
+    --panel: #fafafa; --accent: #2a78d6; --warn: #d03b3b;
+  }
+  * { box-sizing: border-box; }
+  body { font: 14px/1.5 -apple-system, "Segoe UI", sans-serif; margin: 0;
+         color: var(--ink); background: var(--bg); }
+  a { color: var(--accent); }
+  .wrap { max-width: 1240px; margin: 0 auto; padding: 16px; }
+  h1 { font-size: 18px; margin: 0 0 2px; }
+  h2 { font-size: 13px; text-transform: uppercase; letter-spacing: .04em;
+       color: var(--muted); margin: 0 0 8px; }
+  .sub { color: var(--muted); margin: 0 0 18px; }
+  button { font: inherit; cursor: pointer; border: 1px solid var(--line);
+           background: var(--panel); border-radius: 6px; padding: 5px 10px; }
+  button.go { background: var(--accent); border-color: var(--accent); color: #fff; }
+  button:hover { filter: brightness(.97); }
+  input, select { font: inherit; padding: 5px 8px; border: 1px solid var(--line);
+                  border-radius: 6px; background: #fff; }
+  table { border-collapse: collapse; width: 100%; }
+  th, td { padding: 4px 7px; border-bottom: 1px solid var(--line); white-space: nowrap; }
+  th { text-align: left; font-weight: 600; color: var(--muted); font-size: 12px; }
+  td.n { text-align: right; font-variant-numeric: tabular-nums; }
+  .panel { border: 1px solid var(--line); border-radius: 8px; padding: 12px;
+           background: var(--panel); }
+  .grid { display: grid; grid-template-columns: 1fr 340px; gap: 16px; align-items: start; }
+  @media (max-width: 900px) { .grid { grid-template-columns: 1fr; } }
+  .pill { display: inline-block; padding: 1px 7px; border-radius: 99px;
+          font-size: 12px; background: #eef3fb; color: var(--accent); }
+  .pill.out { background: #fdeeee; color: var(--warn); }
+  .muted { color: var(--muted); }
+</style>
+<body>
+<div class="wrap">{% block body %}{% endblock %}</div>
+</body>
+</html>

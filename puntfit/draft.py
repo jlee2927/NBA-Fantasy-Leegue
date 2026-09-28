@@ -14,12 +14,18 @@ because anything about him did. It is also what keeps a recommendation cheap.
 from __future__ import annotations
 
 import itertools
+import math
 from dataclasses import dataclass, field
 
+import numpy as np
 import pandas as pd
 
 from .categories import NINE_CAT
 from .valuation import DEFAULT_POOL, punt_value, value_players
+
+# How far from parity a category has to be before it stops being worth
+# chasing, measured in standard deviations of a team's season total.
+CONTEST_WIDTH = 1.0
 
 
 @dataclass(frozen=True)
@@ -31,6 +37,16 @@ class League:
     @property
     def total_picks(self) -> int:
         return self.teams * self.rounds
+
+    @property
+    def max_punts(self) -> int:
+        """Punting more than this cannot win a week.
+
+        A week goes to whoever takes a majority of the categories, so a roster
+        has to keep more than half of them. Punt five of nine and the best
+        available result is four, which loses every week by construction.
+        """
+        return math.ceil(len(self.categories) / 2) - 1
 
     def slot(self, pick: int) -> int:
         """Whose turn it is at a zero-based overall pick, snake order."""
@@ -104,12 +120,67 @@ class DraftState:
         self.picks.append(pick)
         return pick
 
-    def recommend(self, team: int | None = None, limit: int = 10) -> pd.DataFrame:
-        """Best available under that team's build, best first."""
+    def category_weights(self, team: int) -> pd.Series:
+        """How much a marginal player could still change each category.
+
+        A category league is won by taking a majority of categories each week,
+        not by piling up totals: winning blocks 60-12 scores exactly what
+        winning 31-30 does. So the value of adding to a category is the chance
+        it flips the result, which is highest where the team sits near parity.
+        A category already lost is not worth buying into, and one already won
+        is not worth padding. Both tail off; the contested middle does not.
+
+        Weighting by raw strength instead - chase whatever the roster is best
+        at - gets the lost half right and the won half exactly backwards, and
+        keeps stacking a category the team locked up rounds ago.
+
+        Values are standardised over the draftable pool, so an average team's
+        season total is zero in every category and the spread of team totals is
+        about the square root of the roster size. Unfilled slots are treated as
+        league-average, which is why an almost-empty roster sits near parity
+        everywhere and the board stays close to plain best-available until the
+        team has taken some shape.
+        """
+        z = self.values(self.punts.get(team, ()))
+        cats = [c for c in z.columns if c != "total"]
+        roster = self.roster(team)
+        if not roster:
+            return pd.Series(1.0, index=cats)
+
+        totals = z.loc[z.index.intersection(roster, sort=False), cats].sum()
+        standing = totals / math.sqrt(self.league.rounds)
+        return np.exp(-0.5 * (standing / CONTEST_WIDTH) ** 2)
+
+    def recommend(self, team: int | None = None, limit: int = 10,
+                  contest: bool = True) -> pd.DataFrame:
+        """Best available under that team's build, best first.
+
+        With `contest` on, the ranking leans toward the categories still in
+        play for this roster, so the board shifts as the team takes shape
+        instead of serving the same list every round.
+        """
         team = self.on_the_clock if team is None else team
         z = self.values(self.punts.get(team, ()))
-        free = z.index.intersection(self.available, sort=False)
-        return z.loc[free].head(limit)
+        board = z.loc[z.index.intersection(self.available, sort=False)]
+
+        if contest and self.roster(team):
+            w = self.category_weights(team)
+            board = board.assign(total=(board[w.index] * w).sum(axis=1) / w.sum())
+            board = board.sort_values("total", ascending=False)
+        return board.head(limit)
+
+    def auto_punt(self, player: str, n: int) -> tuple[str, ...]:
+        """The n categories this player is worst at.
+
+        The direct reading of "punt what you are bad at", which is what people
+        mean by a punt build and what they can check against their own eyes.
+        Ranking every possible build by value gives a similar answer but an
+        occasionally surprising one, so that stays available as an alternative
+        rather than as the default.
+        """
+        z = self.values(())
+        cats = [c for c in self.league.categories if c in z.columns]
+        return tuple(z.loc[player, cats].nsmallest(n).index)
 
     # ----------------------------------------------------------- punt fits
     def suggest_punts(self, player: str, n_punts: int, limit: int = 5) -> pd.DataFrame:

@@ -135,3 +135,81 @@ def test_suggested_builds_are_ordered_by_fit(draft):
 def test_giannis_still_wants_to_punt_free_throws(draft):
     out = draft.suggest_punts("Giannis Antetokounmpo", 1, limit=1)
     assert out.iloc[0].label == "ft"
+
+
+# ------------------------------------------------------------- punt limits
+def test_you_must_keep_enough_categories_to_win_a_week():
+    """A week goes to whoever takes a majority, so punting five of nine caps
+    you at four and loses every week by construction."""
+    from puntfit.categories import EIGHT_CAT, NINE_CAT
+    assert League(categories=NINE_CAT).max_punts == 4
+    assert League(categories=EIGHT_CAT).max_punts == 3
+    for cats in (NINE_CAT, EIGHT_CAT):
+        league = League(categories=cats)
+        kept = len(cats) - league.max_punts
+        assert kept > len(cats) / 2
+
+
+# --------------------------------------------------------------- auto punt
+def test_auto_punt_takes_the_players_worst_categories(draft):
+    z = draft.values(())
+    for n in (1, 2, 4):
+        punted = draft.auto_punt("Luka Doncic", n)
+        assert len(punted) == n
+        kept = [c for c in draft.league.categories if c not in punted]
+        assert z.loc["Luka Doncic", list(punted)].max() <= z.loc["Luka Doncic", kept].min()
+
+
+def test_auto_punt_gives_giannis_free_throws(draft):
+    assert draft.auto_punt("Giannis Antetokounmpo", 1) == ("ft",)
+
+
+def test_auto_punt_nests_as_it_grows(draft):
+    one = draft.auto_punt("Luka Doncic", 1)
+    assert set(one) < set(draft.auto_punt("Luka Doncic", 3))
+
+
+# ------------------------------------------------- contested categories
+@pytest.fixture
+def blocks_heavy(projections):
+    """A roster that has locked up blocks and nothing else."""
+    import puntfit.valuation as V
+    d = DraftState(projections, League(teams=1, rounds=13))
+    z, _ = V.value_players(projections)
+    for name in z.nlargest(5, "blk").index:
+        d.make_pick(name)
+    return d
+
+
+def test_a_locked_category_stops_being_chased(blocks_heavy):
+    w = blocks_heavy.category_weights(0)
+    assert w["blk"] < 0.05
+    assert w["blk"] == w.min()
+
+
+def test_contested_categories_carry_the_most_weight(blocks_heavy):
+    z = blocks_heavy.values(())
+    cats = [c for c in z.columns if c != "total"]
+    totals = z.loc[z.index.intersection(blocks_heavy.roster(0), sort=False), cats].sum()
+    w = blocks_heavy.category_weights(0)
+    nearest = totals.abs().idxmin()
+    assert w[nearest] == pytest.approx(w.max(), abs=0.05)
+
+
+def test_a_category_far_behind_is_still_worth_more_than_one_locked(blocks_heavy):
+    """Behind is recoverable; already won is not worth padding."""
+    w = blocks_heavy.category_weights(0)
+    assert w["ast"] > w["blk"]
+
+
+def test_weighting_reorders_the_board(blocks_heavy):
+    plain = list(blocks_heavy.recommend(0, limit=6, contest=False).index)
+    smart = list(blocks_heavy.recommend(0, limit=6, contest=True).index)
+    assert plain != smart
+
+
+def test_an_empty_roster_has_nothing_to_lean_on(draft):
+    w = draft.category_weights(0)
+    assert (w == 1.0).all()
+    assert list(draft.recommend(0, limit=5, contest=True).index) == \
+           list(draft.recommend(0, limit=5, contest=False).index)

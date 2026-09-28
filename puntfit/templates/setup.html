@@ -1,0 +1,43 @@
+{% extends "base.html" %}
+{% block title %}PuntFit - new draft{% endblock %}
+{% block body %}
+<h1>PuntFit</h1>
+<p class="sub">Category-league draft assistant &middot; {{ params.target_season }} projections</p>
+
+<form method="post" action="{{ url_for('create') }}" class="panel" style="max-width:520px">
+  <h2>New draft</h2>
+
+  <p>
+    <label>Mode<br>
+      <select name="mode">
+        <option value="mock">Mock draft &mdash; the other seats draft themselves</option>
+        <option value="live">Live assistant &mdash; I enter every pick</option>
+      </select>
+    </label>
+  </p>
+
+  <p style="display:flex; gap:10px; flex-wrap:wrap">
+    <label>Teams<br>
+      <select name="teams">
+        {% for n in [8, 10, 12, 14] %}
+        <option value="{{ n }}" {% if n == 12 %}selected{% endif %}>{{ n }}</option>
+        {% endfor %}
+      </select>
+    </label>
+    <label>Rounds<br><input name="rounds" type="number" value="13" min="1" max="20" size="3"></label>
+    <label>My pick<br><input name="seat" type="number" value="1" min="1" max="14" size="3"></label>
+    <label>Format<br>
+      <select name="format">
+        {% for f in formats %}<option value="{{ f }}">{{ f }}</option>{% endfor %}
+      </select>
+    </label>
+  </p>
+
+  <p class="muted" style="font-size:13px">
+    Make your first-round pick, and PuntFit will suggest the punt builds that
+    fit that player. Confirm one and every later round is ranked against it.
+  </p>
+
+  <button class="go" type="submit">Start</button>
+</form>
+{% endblock %}

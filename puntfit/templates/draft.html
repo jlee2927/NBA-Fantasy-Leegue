@@ -1,0 +1,147 @@
+{% extends "base.html" %}
+{% block title %}PuntFit - round {{ state.current_round }}{% endblock %}
+{% block body %}
+
+<div style="display:flex; justify-content:space-between; align-items:baseline; flex-wrap:wrap; gap:8px">
+  <h1>Round {{ state.current_round }} &middot; pick {{ state.picks|length + 1 }}</h1>
+  <p class="sub" style="margin:0">
+    {{ mode }} draft &middot; you are team {{ seat + 1 }} of {{ state.league.teams }}
+    {%- if state.punts.get(seat) %} &middot; punting
+      <span class="pill">{{ state.punts[seat]|join(' + ') }}</span>
+    {%- endif %}
+    {%- if state.complete %} &middot; <strong>draft complete</strong>{% endif %}
+  </p>
+</div>
+
+{% if auto %}
+<div class="panel" style="margin-bottom:16px">
+  <h2>Choose your build</h2>
+
+  <form method="get" action="{{ url_for('room', room_id=room_id) }}"
+        style="margin-bottom:12px">
+    <label>Punt
+      <select name="punts" onchange="this.form.submit()">
+        {% for n in range(1, max_punts + 1) %}
+        <option value="{{ n }}" {% if n == n_punts %}selected{% endif %}>
+          {{ n }} categor{{ 'y' if n == 1 else 'ies' }}
+        </option>
+        {% endfor %}
+      </select>
+    </label>
+    <span class="muted" style="font-size:13px; margin-left:8px">
+      up to {{ max_punts }} &mdash; you need {{ state.league.categories|length - max_punts }}
+      of {{ state.league.categories|length }} to win a week
+    </span>
+    <noscript><button type="submit">update</button></noscript>
+  </form>
+
+  <form method="post" action="{{ url_for('punt', room_id=room_id) }}">
+    <label style="display:block; margin:6px 0; padding:8px; border-radius:6px;
+                  background:#eef3fb">
+      <input type="radio" name="build" value="{{ auto|join(',') }}" checked>
+      <strong>{{ auto|join(' + ') }}</strong>
+      <span class="muted">&mdash; {{ mine[0] }}'s weakest
+        {{ 'category' if n_punts == 1 else n_punts ~ ' categories' }}</span>
+    </label>
+
+    {% for s in suggestions.itertuples() %}
+      {% if s.punt|sort != auto|sort %}
+      <label style="display:block; margin:4px 0">
+        <input type="radio" name="build" value="{{ s.punt|join(',') }}">
+        {{ s.label }}
+        <span class="muted">&mdash; ranks {{ mine[0] }} #{{ s.rank }} overall</span>
+      </label>
+      {% endif %}
+    {% endfor %}
+
+    <button class="go" type="submit" style="margin-top:8px">Confirm build</button>
+  </form>
+</div>
+{% endif %}
+
+<div class="grid">
+  <div class="panel">
+    <h2>Best available{% if state.punts.get(seat) %} for your build{% endif %}</h2>
+    {% if state.complete %}
+      <p class="muted">Every roster is full.</p>
+    {% else %}
+    <table>
+      <thead><tr>
+        <th></th><th>Player</th><th>Team</th><th>Pos</th>
+        <th class="n">Value</th>
+        {% for c in cats %}<th class="n">{{ c }}</th>{% endfor %}
+        <th></th>
+      </tr></thead>
+      <tbody>
+      {% for name, row in board.iterrows() %}
+        {% set p = detail.loc[name] %}
+        <tr>
+          <td class="n muted">{{ loop.index }}</td>
+          <td>
+            {{ name }}
+            {% if p.injury_status %}
+              <span class="pill {% if p.injury_severity >= 4 %}out{% endif %}"
+                    title="{{ p.injury_detail }}">{{ p.injury_status }}</span>
+            {% endif %}
+          </td>
+          <td class="muted">{{ p.team }}</td>
+          <td class="muted">{{ p.pos }}</td>
+          <td class="n"><strong>{{ '%.2f'|format(row.total) }}</strong></td>
+          {% for c in cats %}<td class="n muted">{{ '%+.1f'|format(row[c]) }}</td>{% endfor %}
+          <td>
+            <form method="post" action="{{ url_for('pick', room_id=room_id) }}">
+              <input type="hidden" name="player" value="{{ name }}">
+              <button type="submit">draft</button>
+            </form>
+          </td>
+        </tr>
+      {% endfor %}
+      </tbody>
+    </table>
+    {% endif %}
+  </div>
+
+  <div>
+    <div class="panel" style="margin-bottom:16px">
+      <h2>Your roster ({{ mine|length }})</h2>
+      {% if mine %}
+        <table>
+          {% for name in mine %}
+          <tr><td class="muted n">{{ loop.index }}</td><td>{{ name }}</td></tr>
+          {% endfor %}
+        </table>
+        {% if totals is not none %}
+        <h2 style="margin-top:12px">Category totals</h2>
+        <table>
+          {% for c in cats %}
+          <tr>
+            <td>{{ c }}</td>
+            <td class="n" style="color:{{ '#2a78d6' if totals[c].sum() >= 0 else '#d03b3b' }}">
+              {{ '%+.1f'|format(totals[c].sum()) }}
+            </td>
+          </tr>
+          {% endfor %}
+        </table>
+        {% endif %}
+      {% else %}
+        <p class="muted">Nothing yet. Draft someone and PuntFit will suggest a build.</p>
+      {% endif %}
+    </div>
+
+    <div class="panel">
+      <h2>Recent picks</h2>
+      {% if recent %}
+      <table>
+        {% for p in recent %}
+        <tr>
+          <td class="muted n">{{ p.number + 1 }}</td>
+          <td class="muted">T{{ p.team + 1 }}{% if p.team == seat %} (you){% endif %}</td>
+          <td>{{ p.player }}</td>
+        </tr>
+        {% endfor %}
+      </table>
+      {% else %}<p class="muted">No picks yet.</p>{% endif %}
+    </div>
+  </div>
+</div>
+{% endblock %}

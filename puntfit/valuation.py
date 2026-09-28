@@ -169,23 +169,44 @@ def player_table(df: pd.DataFrame, z: pd.DataFrame, cats) -> pd.DataFrame:
     return out
 
 
-def _shade(v: float, cap: float = 3.0) -> str:
-    """Green above average, red below, deepening with distance from it."""
+# Above-average and below-average poles, with white as the neutral midpoint.
+#
+# "classic" matches Basketball Monster. It is not colour-blind safe: measured in
+# OKLab against a deuteranope, its green and red are 4.6 apart, under the 6.0
+# floor and far under the target of 8, so roughly 6% of men cannot separate
+# them. Fantasy basketball skews male enough that this is not a rounding error.
+#
+# "cvd" keeps red for below-average and swaps the green for blue, which is the
+# standard diverging pair. Worst case across protanopia, deuteranopia and
+# tritanopia is 23.8, comfortably clear. Red vs green is the unreadable
+# pairing; red vs blue is fine.
+#
+# Either way the number sits in the cell, so colour reinforces rather than
+# carries the meaning.
+PALETTES = {
+    "cvd": {"high": (42, 120, 214), "low": (208, 59, 59)},
+    "classic": {"high": (34, 150, 83), "low": (200, 52, 52)},
+}
+
+
+def _shade(v: float, palette: dict, cap: float = 3.0) -> str:
     if pd.isna(v):
         return ""
     weight = min(abs(v) / cap, 1.0) * 0.75
-    r, g, b = (34, 150, 83) if v >= 0 else (200, 52, 52)
+    r, g, b = palette["high"] if v >= 0 else palette["low"]
     return f"background-color: rgba({r},{g},{b},{weight:.2f})"
 
 
-def write_board(table: pd.DataFrame, out: Path, cats, title: str) -> None:
+def write_board(table: pd.DataFrame, out: Path, cats, title: str,
+                palette: str = "cvd") -> None:
+    shades = PALETTES[palette]
     value_cols = [VALUE_LABEL[c] for c in cats] + ["Value"]
     head = "".join(f"<th>{c}</th>" for c in ["#", "Player", *table.columns])
     rows = []
     for i, (name, r) in enumerate(table.iterrows(), 1):
         cells = [f"<td class=r>{i}</td>", f"<td class=name>{name}</td>"]
         for col in table.columns:
-            style = f' style="{_shade(r[col])}"' if col in value_cols else ""
+            style = f' style="{_shade(r[col], shades)}"' if col in value_cols else ""
             cls = " class=r" if col in value_cols or isinstance(r[col], float) else ""
             cells.append(f"<td{cls}{style}>{r[col]}</td>")
         rows.append("<tr>" + "".join(cells) + "</tr>")
@@ -202,7 +223,9 @@ def write_board(table: pd.DataFrame, out: Path, cats, title: str) -> None:
 </style>
 <h1>{title}</h1>
 <p>Each value column is standard deviations from the draft-pool average, so
-every category carries equal weight. Value is their mean.</p>
+every category carries equal weight. Value is their mean.
+{"Blue is above average, red below." if palette == "cvd" else
+ "Green is above average, red below - not colour-blind safe."}</p>
 <table><thead><tr>{head}</tr></thead><tbody>{''.join(rows)}</tbody></table>
 """)
 
@@ -238,6 +261,9 @@ if __name__ == "__main__":
     ap.add_argument("--values", default="data/player_values.csv", type=Path)
     ap.add_argument("--board", default="docs/draft-board.html", type=Path)
     ap.add_argument("--limit", default=200, type=int)
+    ap.add_argument("--palette", choices=tuple(PALETTES), default="cvd",
+                    help="cvd: blue/red, readable with colour blindness. "
+                         "classic: Basketball Monster's green/red.")
     a = ap.parse_args()
 
     df, params = load_projections(a.projections)
@@ -249,7 +275,8 @@ if __name__ == "__main__":
     table.to_csv(a.values)
     fmt = "9-cat" if "tov" in cats else "8-cat"
     write_board(table.head(a.limit), a.board, cats,
-                f"PuntFit draft board - {params.get('target_season', '')} ({fmt})")
+                f"PuntFit draft board - {params.get('target_season', '')} ({fmt})",
+                a.palette)
     print(json.dumps({"players": len(df), "categories": list(cats),
                       "pool": len(pool), "report": str(a.out),
                       "values": str(a.values), "board": str(a.board)}, indent=1))

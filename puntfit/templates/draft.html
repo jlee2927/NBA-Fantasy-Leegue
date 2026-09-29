@@ -13,9 +13,31 @@
   </p>
 </div>
 
+<form method="post" action="{{ url_for('settings', room_id=room_id) }}"
+      class="panel" style="margin-bottom:16px; display:flex; gap:18px; flex-wrap:wrap; align-items:center">
+  <label>Punt build
+    <select name="build_mode" onchange="this.form.submit()">
+      <option value="manual" {% if build_mode == 'manual' %}selected{% endif %}>I choose</option>
+      <option value="auto" {% if build_mode == 'auto' %}selected{% endif %}>Pick one for me</option>
+    </select>
+  </label>
+  <label>My picks
+    <select name="draft_mode" onchange="this.form.submit()">
+      <option value="manual" {% if draft_mode == 'manual' %}selected{% endif %}>I choose</option>
+      <option value="auto" {% if draft_mode == 'auto' %}selected{% endif %}>Draft for me</option>
+    </select>
+  </label>
+  <span class="muted" style="font-size:12px">
+    Nothing is applied to your board until you pick it.
+  </span>
+  <noscript><button type="submit">apply</button></noscript>
+</form>
+
 {% if auto %}
 <div class="panel" style="margin-bottom:16px">
-  <h2>Choose your build</h2>
+  <h2>
+    {% if state.punts.get(seat) %}Change your build{% else %}Choose your build{% endif %}
+  </h2>
 
   <form method="get" action="{{ url_for('room', room_id=room_id) }}"
         style="margin-bottom:12px">
@@ -35,33 +57,60 @@
     <noscript><button type="submit">update</button></noscript>
   </form>
 
+  {% set current = state.punts.get(seat) %}
   <form method="post" action="{{ url_for('punt', room_id=room_id) }}">
-    <label style="display:block; margin:6px 0; padding:8px; border-radius:6px;
-                  background:#eef3fb">
-      <input type="radio" name="build" value="{{ auto|join(',') }}" checked>
-      <strong>{{ auto|join(' + ') }}</strong>
-      <span class="muted">&mdash; {{ mine[0] }}'s weakest
-        {{ 'category' if n_punts == 1 else n_punts ~ ' categories' }}</span>
-    </label>
-
-    {% for s in suggestions.itertuples() %}
-      {% if s.punt|sort != auto|sort %}
-      <label style="display:block; margin:4px 0">
-        <input type="radio" name="build" value="{{ s.punt|join(',') }}">
-        {{ s.label }}
-        <span class="muted">&mdash; ranks {{ mine[0] }} #{{ s.rank }} overall</span>
-      </label>
-      {% endif %}
-    {% endfor %}
-
-    <button class="go" type="submit" style="margin-top:8px">Confirm build</button>
+    <table style="margin-bottom:8px">
+      <thead><tr>
+        <th></th><th>build</th>
+        <th class="n">{{ mine[0] }} ranks</th><th class="n">value</th>
+      </tr></thead>
+      {% for s in builds.itertuples() %}
+      <tr {% if current and s.punt|sort == current|sort %}style="background:#eef3fb"{% endif %}>
+        <td><input type="radio" name="build" value="{{ s.punt|join(',') }}"
+              {% if current %}{% if s.punt|sort == current|sort %}checked{% endif %}
+              {% elif build_mode == 'auto' and s.punt|sort == auto|sort %}checked{% endif %}></td>
+        <td><strong>{{ s.label }}</strong>
+          {% if s.punt|sort == auto|sort %}
+            <span class="pill">weakest {{ n_punts }}</span>
+          {% endif %}
+        </td>
+        <td class="n">#{{ s.rank }}</td>
+        <td class="n muted">{{ '%.2f'|format(s.value) }}</td>
+      </tr>
+      {% endfor %}
+      <tr>
+        <td><input type="radio" name="build" value=""
+                   {% if not current %}checked{% endif %}></td>
+        <td colspan="3" class="muted">No build &mdash; rank on overall value</td>
+      </tr>
+    </table>
+    <button class="go" type="submit">Apply build</button>
+    <span class="muted" style="font-size:12px; margin-left:8px">
+      ordered by how well each suits {{ mine[0] }}
+    </span>
   </form>
 </div>
 {% endif %}
 
 <div class="grid">
   <div class="panel">
-    <h2>Best available{% if state.punts.get(seat) %} for your build{% endif %}</h2>
+    <div style="display:flex; justify-content:space-between; align-items:baseline;
+                gap:12px; flex-wrap:wrap">
+      <h2 style="margin:0">
+        Best available{% if state.punts.get(seat) %} for your build{% endif %}
+      </h2>
+      <form method="get" action="{{ url_for('room', room_id=room_id) }}"
+            style="margin-bottom:8px">
+        <input name="q" value="{{ search }}" placeholder="search all {{ pool }} available"
+               size="24" autocomplete="off">
+        <button type="submit">find</button>
+        {% if search %}
+          <a href="{{ url_for('room', room_id=room_id) }}" class="muted"
+             style="font-size:12px; margin-left:6px">clear</a>
+          <span class="muted" style="font-size:12px">{{ matches }} matched</span>
+        {% endif %}
+      </form>
+    </div>
     {% if state.complete %}
       <p class="muted">Every roster is full.</p>
     {% else %}

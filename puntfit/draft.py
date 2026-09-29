@@ -233,4 +233,10 @@ class DraftState:
         unknown = set(punt) - set(self.league.categories)
         if unknown:
             raise ValueError(f"not categories in this league: {sorted(unknown)}")
+        if len(punt) > self.league.max_punts:
+            raise ValueError(f"at most {self.league.max_punts} punts in this format")
         self.punts[team] = tuple(punt)
+
+    def clear_punt(self, team: int) -> None:
+        """Back to no build at all, so a manager can change their mind."""
+        self.punts.pop(team, None)

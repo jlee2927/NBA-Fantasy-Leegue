@@ -126,8 +126,10 @@ def test_the_count_changes_which_build_is_offered(client):
     client.post(f"{room}/pick", data={"player": _first_player(client, room)})
     one = _text(client, f"{room}?punts=1")
     three = _text(client, f"{room}?punts=3")
-    assert "weakest category" in one
-    assert "weakest 3 categories" in three
+    assert "weakest 1" in one
+    assert "weakest 3" in three
+    # a three-category build names three categories
+    assert one.count('name="build" value="') < three.count('name="build" value="')
 
 
 def test_confirming_a_build_reranks_the_board(client):
@@ -149,6 +151,99 @@ def test_a_confirmed_build_drops_those_columns(client):
     header = page.split("Best available")[1].split("</thead>")[0]
     assert ">tov<" not in header and ">ft<" not in header
     assert ">pts<" in header
+
+
+# ------------------------------------------------------ automatic / manual
+def _after_first_pick(client, **over):
+    room = _start(client, **over)
+    client.post(f"{room}/pick", data={"player": _first_player(client, room)})
+    return room
+
+
+def _build_applied(client, room):
+    page = client.get(room).data.decode()
+    return "punting" in page.split("Best available")[0]
+
+
+def test_nothing_is_applied_until_the_manager_asks(client):
+    """The default. Proposing a build and ranking the whole board around it
+    is what pins someone into a strategy they never chose."""
+    assert not _build_applied(client, _after_first_pick(client))
+
+
+def test_automatic_build_mode_applies_one(client):
+    assert _build_applied(client, _after_first_pick(client, build_mode="auto"))
+
+
+def test_the_two_toggles_are_independent(client):
+    """Automatic builds must not require handing over the picks as well."""
+    room = _after_first_pick(client, build_mode="auto", draft_mode="manual")
+    assert _build_applied(client, room)
+    assert "draft complete" not in client.get(room).data.decode()
+
+
+def test_switching_to_automatic_mid_draft_applies_a_build(client):
+    room = _after_first_pick(client)
+    assert not _build_applied(client, room)
+    client.post(f"{room}/settings", data={"build_mode": "auto"})
+    assert _build_applied(client, room)
+
+
+def test_automatic_picks_run_the_draft_out(client):
+    room = _start(client, draft_mode="auto")
+    page = _text(client, room)
+    assert "draft complete" in page
+    assert "Your roster (13)" in page
+
+
+def test_the_builds_are_offered_in_order_of_fit(client):
+    import re
+    page = client.get(_after_first_pick(client)).data.decode()
+    values = [float(v) for v in
+              re.findall(r'<td class="n muted">(-?\d+\.\d\d)</td>', page)]
+    ranked = values[:9]
+    assert ranked == sorted(ranked, reverse=True)
+
+
+def test_a_build_can_be_changed_after_it_is_set(client):
+    room = _after_first_pick(client)
+    client.post(f"{room}/punt", data={"build": "tov"})
+    page = client.get(room).data.decode()
+    assert "Change your build" in page          # the chooser stays offered
+    client.post(f"{room}/punt", data={"build": "blk"})
+    assert "blk" in client.get(room).data.decode().split("Best available")[0]
+
+
+def test_choosing_no_build_is_allowed(client):
+    room = _after_first_pick(client)
+    client.post(f"{room}/punt", data={"build": "tov"})
+    assert _build_applied(client, room)
+    client.post(f"{room}/punt", data={"build": ""})
+    assert not _build_applied(client, room)
+
+
+# ----------------------------------------------------------------- search
+def test_search_narrows_the_board(client):
+    room = _start(client)
+    page = client.get(f"{room}?q=curry").data.decode()
+    assert "Stephen Curry" in page
+    assert "matched" in page
+
+
+def test_search_reaches_players_below_the_top_forty(client):
+    """The board shows 40; search is how you get at the other 480."""
+    room = _start(client)
+    shown = client.get(room).data.decode()
+    deep = "Jalen Duren"
+    if deep not in shown:
+        assert deep in client.get(f"{room}?q=duren").data.decode()
+
+
+def test_an_unmatched_search_does_not_break_the_page(client):
+    room = _start(client)
+    r = client.get(f"{room}?q=zzzznobody")
+    assert r.status_code == 200
+    assert b"0 matched" in r.data
 
 
 # --------------------------------------------------------------- emphasis

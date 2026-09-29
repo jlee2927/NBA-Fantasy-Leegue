@@ -1,0 +1,26 @@
+# Render deployment for the draft assistant.
+#
+# One worker, deliberately. Draft rooms live in a dictionary in the server's
+# memory, so a second worker would serve some requests from a process that has
+# never heard of your draft, and the room would appear to vanish mid-pick.
+# Persisting rooms properly is WS5's job; until then, one process.
+#
+# Threads rather than workers gives concurrency without that problem: threads
+# share memory, so every request sees the same rooms.
+#
+# The plan is not "free": a free web service idles after ~15 minutes, and
+# waking it both stalls the first request and loses every draft in progress.
+# That is survivable for a hobby page and not for draft night.
+
+services:
+  - type: web
+    name: puntfit
+    runtime: python
+    plan: starter
+    region: oregon
+    buildCommand: pip install -r requirements.txt
+    startCommand: gunicorn puntfit.app:app --workers 1 --threads 8 --timeout 60
+    healthCheckPath: /
+    envVars:
+      - key: PYTHON_VERSION
+        value: "3.13.5"

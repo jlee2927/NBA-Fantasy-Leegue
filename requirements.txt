@@ -9,4 +9,6 @@ pyarrow>=15
 # parity check. Drop this once that loader goes.
 xlrd>=2.0
 flask>=3.0
+# Serves the app in production; Flask's own server is for development only.
+gunicorn>=22.0
 pytest>=8.0

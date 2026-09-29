@@ -242,8 +242,11 @@ def write_board(table: pd.DataFrame, out: Path, cats, title: str,
     out.write_text(f"""<!doctype html><meta charset=utf-8>
 <title>{title}</title>
 <style>
- body{{font:13px/1.4 -apple-system,Segoe UI,sans-serif;margin:24px;color:#111;background:#fff}}
+ body{{font:13px/1.4 -apple-system,Segoe UI,sans-serif;margin:24px 16px;color:#111;background:#fff}}
  h1{{font-size:17px;margin:0 0 4px}} p{{color:#666;margin:0 0 16px}}
+ /* On a phone the table is far wider than the screen. Scrolling it sideways
+    keeps the text readable; letting it shrink to fit does not. */
+ .scroll{{overflow-x:auto;-webkit-overflow-scrolling:touch}}
  table{{border-collapse:collapse}} th,td{{padding:3px 7px;border-bottom:1px solid #eee;white-space:nowrap}}
  th{{position:sticky;top:0;background:#fafafa;text-align:left;font-weight:600;border-bottom:2px solid #ddd}}
  td.r{{text-align:right;font-variant-numeric:tabular-nums}}
@@ -254,7 +257,9 @@ def write_board(table: pd.DataFrame, out: Path, cats, title: str,
 every category carries equal weight. Value is their mean.
 {"Blue is above average, red below." if palette == "cvd" else
  "Green is above average, red below - not colour-blind safe."}</p>
+<div class=scroll>
 <table><thead><tr>{head}</tr></thead><tbody>{''.join(rows)}</tbody></table>
+</div>
 """)
 
 

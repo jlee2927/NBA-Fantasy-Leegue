@@ -1,0 +1,117 @@
+<!doctype html>
+<html lang="en">
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>PuntFit — category-league draft rankings</title>
+<meta name="description" content="Punt-aware fantasy basketball draft rankings
+      for the 2026-27 season, built from projections rather than opinion.">
+<style>
+  :root {
+    --ink: #111; --muted: #5f5f5f; --line: #e6e6e6;
+    --accent: #2a78d6; --panel: #fafafa;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) {
+      --ink: #f2f2f0; --muted: #a6a59f; --line: #2c2c2a;
+      --accent: #6aa5ea; --panel: #1c1c1b;
+    }
+    :root:not([data-theme="light"]) body { background: #131312; }
+  }
+  * { box-sizing: border-box; }
+  body {
+    font: 16px/1.6 -apple-system, "Segoe UI", sans-serif;
+    color: var(--ink); background: #fff; margin: 0;
+  }
+  .wrap { max-width: 680px; margin: 0 auto; padding: 48px 16px 64px; }
+  h1 { font-size: 30px; margin: 0 0 4px; letter-spacing: -0.02em; }
+  h2 { font-size: 15px; text-transform: uppercase; letter-spacing: .05em;
+       color: var(--muted); margin: 40px 0 10px; }
+  p { margin: 0 0 14px; }
+  .lede { color: var(--muted); font-size: 18px; margin-bottom: 28px; }
+  a { color: var(--accent); }
+  .cta {
+    display: inline-block; background: var(--accent); color: #fff;
+    text-decoration: none; padding: 11px 20px; border-radius: 8px;
+    font-weight: 600;
+  }
+  .cta:hover { filter: brightness(1.07); }
+  ul { padding-left: 20px; margin: 0 0 14px; }
+  li { margin-bottom: 7px; }
+  .note { color: var(--muted); font-size: 14px; }
+  .links { border-top: 1px solid var(--line); margin-top: 40px; padding-top: 20px; }
+  code { background: var(--panel); padding: 1px 5px; border-radius: 4px;
+         font-size: 0.9em; }
+</style>
+<body>
+<div class="wrap">
+
+  <h1>PuntFit</h1>
+  <p class="lede">
+    Punt-aware draft rankings for category-league fantasy basketball,
+    2026&ndash;27.
+  </p>
+
+  <p><a class="cta" href="draft-board.html">Open the draft board &rarr;</a></p>
+
+  <h2>What the numbers mean</h2>
+  <p>
+    Every category is scored as standard deviations from the draft-pool
+    average, so each one counts equally. A player's <strong>Value</strong> is
+    the mean of those nine scores. That is why one extra steal per game is
+    worth roughly eighteen extra points per game: almost every draftable
+    player gets about one steal, so the player getting two is genuinely rare,
+    while one more point barely separates anybody.
+  </p>
+  <p>
+    <strong>Punting</strong> a category means dropping it from that average
+    entirely. A manager who gives up on turnovers stops paying for the
+    turnovers a high-usage guard commits, which is why those guards climb the
+    board under that build.
+  </p>
+
+  <h2>Where the projections come from</h2>
+  <ul>
+    <li>Marcel projections over 25 seasons of play-by-play data, weighting the
+      last three seasons 5&ndash;4&ndash;3 and regressing toward league
+      average by an amount fitted per category.</li>
+    <li>Rookies have no NBA seasons, so their college production is translated
+      using factors fitted on every player since 2015 who did both, with
+      playing time predicted from draft slot. They are labelled and carry a
+      confidence.</li>
+    <li>Nothing is hand-tuned. Every constant is fitted from prior seasons and
+      checked against seasons it was not fitted on.</li>
+  </ul>
+
+  <h2>How it was checked</h2>
+  <p>
+    Each season is projected using only parameters fitted on earlier seasons,
+    and one season is held back from every stage of tuning.
+  </p>
+  <ul>
+    <!-- GitHub Pages serves .md as plain text; the blob view renders it. -->
+    <li><a href="https://github.com/jlee2927/NBA-Fantasy-Leegue/blob/main/docs/backtest.md">Walk-forward
+      backtest</a> &mdash; 10% better than carrying last season forward, and
+      the held-out season agrees.</li>
+    <li><a href="https://github.com/jlee2927/NBA-Fantasy-Leegue/blob/main/docs/rookie-backtest.md">Rookie
+      translation backtest</a> &mdash; nine of eleven categories beat guessing
+      the class average. Steals do not.</li>
+    <li><a href="https://github.com/jlee2927/NBA-Fantasy-Leegue/blob/main/docs/parity-check.md">Source
+      parity check</a> &mdash; three independent data sources compared before
+      choosing one.</li>
+  </ul>
+
+  <div class="links">
+    <p class="note">
+      Projections are precomputed and refreshed between seasons, not live
+      during a draft. Built with public data from
+      <a href="https://github.com/sportsdataverse">sportsdataverse</a>.
+      Not affiliated with the NBA.
+    </p>
+    <p class="note">
+      <a href="https://github.com/jlee2927/NBA-Fantasy-Leegue">Source on GitHub</a>
+    </p>
+  </div>
+
+</div>
+</body>
+</html>

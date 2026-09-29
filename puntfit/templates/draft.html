@@ -79,6 +79,12 @@
           <td class="n muted">{{ loop.index }}</td>
           <td>
             {{ name }}
+            {% if p.projection_source == 'translated' %}
+              <span class="pill rookie"
+                    title="No NBA history: translated from college production at
+                           pick {{ p.pick|int }}. Confidence: {{ p.confidence }}.">
+                rookie &middot; {{ p.confidence }}</span>
+            {% endif %}
             {% if p.injury_status %}
               <span class="pill {% if p.injury_severity >= 4 %}out{% endif %}"
                     title="{{ p.injury_detail }}">{{ p.injury_status }}</span>

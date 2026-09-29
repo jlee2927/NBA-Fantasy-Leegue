@@ -227,3 +227,6 @@ data/seasons/
 .DS_Store
 # Kaggle NBA dump (~1.7GB), downloaded separately
 data/Kaggle Data Set/
+# Derived college dataset (4MB, one command to rebuild:
+# python -m puntfit.fetch_prospects)
+data/college_seasons.parquet

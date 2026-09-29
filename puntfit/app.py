@@ -27,6 +27,7 @@ from .fetch_injuries import label as label_injuries
 from .valuation import load_projections
 
 PROJECTIONS = Path("data/marcel_projections.json")
+PROSPECTS = Path("data/prospect_projections.json")
 INJURIES = Path("data/injuries.csv")
 
 app = Flask(__name__)
@@ -37,7 +38,7 @@ _rooms: dict[str, dict] = {}
 
 def _load():
     if "players" not in app.config:
-        df, params = load_projections(app.config["PROJECTIONS"])
+        df, params = load_projections(app.config["PROJECTIONS"], PROSPECTS)
         if INJURIES.exists():
             df = label_injuries(df, pd.read_csv(INJURIES))
         else:

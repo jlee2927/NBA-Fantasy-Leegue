@@ -21,10 +21,38 @@ DEFAULT_POOL = 156   # 12 teams x 13 roster slots
 MAX_PASSES = 50
 
 
-def load_projections(path: Path) -> tuple[pd.DataFrame, dict]:
+def load_projections(path: Path, prospects: Path | None = None
+                     ) -> tuple[pd.DataFrame, dict]:
+    """The projection set, with translated rookies folded in when present.
+
+    Rookies have no NBA seasons for Marcel to read, so they come from a
+    separate translation of their college production. They are valued on the
+    same footing as everyone else but keep a projection_source of "translated"
+    and a confidence, because they are the least certain players on the board.
+    """
     with open(path) as f:
         blob = json.load(f)
-    return pd.DataFrame(blob["players"]).set_index("name"), blob.get("params", {})
+    players = pd.DataFrame(blob["players"])
+    params = blob.get("params", {})
+    players["projection_source"] = "marcel"
+    players["confidence"] = "high"
+
+    if prospects is not None and Path(prospects).exists():
+        with open(prospects) as f:
+            extra = json.load(f)
+        rookies = pd.DataFrame(extra["players"])
+        rookies = rookies[~rookies.name.isin(players.name)]
+        # Line the frames up first. An entirely empty column (no birthdate is
+        # published for this draft class yet) carries no dtype of its own, and
+        # concatenating one changes the dtype of the column it lands in.
+        rookies = rookies.dropna(axis=1, how="all")
+        columns = players.columns.union(rookies.columns, sort=False)
+        players = pd.concat([players.reindex(columns=columns),
+                             rookies.reindex(columns=columns)], ignore_index=True)
+        params["prospects"] = extra.get("params", {})
+        params["rookies_added"] = len(rookies)
+
+    return players.set_index("name"), params
 
 
 def available_categories(df: pd.DataFrame, cats=NINE_CAT) -> tuple[str, ...]:
@@ -256,6 +284,7 @@ def write_report(df: pd.DataFrame, z: pd.DataFrame, cats, params: dict,
 if __name__ == "__main__":
     ap = argparse.ArgumentParser()
     ap.add_argument("--projections", default="data/marcel_projections.json", type=Path)
+    ap.add_argument("--prospects", default="data/prospect_projections.json", type=Path)
     ap.add_argument("--out", default="docs/ranking-baseline.md", type=Path)
     ap.add_argument("--pool", default=DEFAULT_POOL, type=int)
     ap.add_argument("--values", default="data/player_values.csv", type=Path)
@@ -266,7 +295,7 @@ if __name__ == "__main__":
                          "classic: Basketball Monster's green/red.")
     a = ap.parse_args()
 
-    df, params = load_projections(a.projections)
+    df, params = load_projections(a.projections, a.prospects)
     cats = available_categories(df)
     z, pool = value_players(df, cats, a.pool)
     write_report(df, z, cats, params, a.out)

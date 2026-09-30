@@ -13,12 +13,14 @@ Usage:
 """
 from __future__ import annotations
 
+import hashlib
+import json
 import random
 import uuid
 from pathlib import Path
 
 import pandas as pd
-from flask import Flask, abort, redirect, render_template, request, url_for
+from flask import Flask, make_response, redirect, render_template, request, url_for
 
 from . import managers as Mg
 from .categories import FORMATS
@@ -38,7 +40,87 @@ BOARD_SIZE = 40
 # answer, so it offers every build of that size worth considering.
 BUILDS_OFFERED = {"manual": 12, "auto": 4}
 
+# The server keeps rooms in memory for speed, but the browser holds the
+# authoritative copy. Any restart - a deploy, a crash, a free instance idling
+# out - empties this dictionary, and a draft that only lived here would be
+# gone with it. Everything needed to rebuild a room is small enough to ride in
+# a cookie, so a restart costs a replay rather than the draft.
 _rooms: dict[str, dict] = {}
+
+STATE_VERSION = 1
+COOKIE_AGE = 60 * 60 * 12        # a draft is one sitting
+COOKIE = "puntfit_draft_"
+
+
+def _fingerprint() -> str:
+    """Identifies the projection set a draft was started against.
+
+    Picks travel as positions in the player list to keep the cookie small, so
+    replaying them against a list that has since changed would quietly hand
+    someone a different team. Refusing is the only safe answer.
+    """
+    players, _ = _load()
+    seed = f"{len(players)}|{players.index[0]}|{players.index[-1]}"
+    return hashlib.sha1(seed.encode()).hexdigest()[:8]
+
+
+def save(room_id: str, room: dict, response):
+    """Write the room back to the browser after anything that changed it."""
+    players, _ = _load()
+    where = {name: i for i, name in enumerate(players.index)}
+    state: DraftState = room["state"]
+    blob = json.dumps({
+        "v": STATE_VERSION, "fp": _fingerprint(),
+        "t": state.league.teams, "r": state.league.rounds, "f": room["format"],
+        "s": room["seat"], "m": room["mode"], "sd": room["seed"],
+        "b": room["build_mode"], "d": room["draft_mode"],
+        "p": [where[pick.player] for pick in state.picks],
+        "pu": list(state.punts.get(room["seat"], ())),
+        "e": state.emphasis.get(room["seat"], {}),
+    }, separators=(",", ":"))
+    response.set_cookie(COOKIE + room_id, blob, max_age=COOKIE_AGE,
+                        samesite="Lax", httponly=True)
+    return response
+
+
+def restore(room_id: str) -> dict | None:
+    """Rebuild a room the server has forgotten, from what the browser kept.
+
+    The picks are replayed rather than the roster being restored wholesale,
+    so the rebuilt room is a genuine DraftState rather than a summary of one.
+    """
+    raw = request.cookies.get(COOKIE + room_id)
+    if not raw:
+        return None
+    try:
+        saved = json.loads(raw)
+    except ValueError:
+        return None
+    if saved.get("v") != STATE_VERSION or saved.get("fp") != _fingerprint():
+        return None          # different projections; the positions would lie
+
+    players, _ = _load()
+    league = League(teams=saved["t"], rounds=saved["r"],
+                    categories=FORMATS[saved["f"]])
+    state = DraftState(players, league)
+    try:
+        for position in saved["p"]:
+            state.make_pick(players.index[position])
+    except (IndexError, ValueError):
+        return None          # corrupt or stale; better to start over
+
+    seat = saved["s"]
+    if saved.get("pu"):
+        state.set_punt(seat, tuple(saved["pu"]))
+    for category, value in (saved.get("e") or {}).items():
+        state.set_emphasis(seat, category, value)
+
+    return {"state": state, "seat": seat, "mode": saved["m"],
+            "seed": saved["sd"], "format": saved["f"],
+            "rng": random.Random(saved["sd"]),
+            "strategies": Mg.assign(league.teams, seat, saved["sd"])
+                          if saved["m"] == "mock" else {},
+            "build_mode": saved["b"], "draft_mode": saved["d"]}
 
 
 def _load():
@@ -56,10 +138,13 @@ def _load():
     return app.config["players"], app.config["params"]
 
 
-def _room(room_id: str) -> dict:
+def _room(room_id: str) -> dict | None:
+    """The room, from memory if it is there and from the browser if not."""
     room = _rooms.get(room_id)
     if room is None:
-        abort(404)
+        room = restore(room_id)
+        if room is not None:
+            _rooms[room_id] = room
     return room
 
 
@@ -89,8 +174,9 @@ def create():
                     categories=FORMATS[form.get("format", "9cat")])
     state = DraftState(players, league)
     room_id = uuid.uuid4().hex[:10]
-    _rooms[room_id] = {
+    room = {
         "state": state, "seat": seat, "mode": mode, "seed": seed,
+        "format": form.get("format", "9cat"),
         "rng": random.Random(seed),
         "strategies": Mg.assign(teams, seat, seed) if mode == "mock" else {},
         # Manual on both counts by default. The app proposing a build and then
@@ -99,8 +185,9 @@ def create():
         "build_mode": form.get("build_mode", "manual"),
         "draft_mode": form.get("draft_mode", "manual"),
     }
-    _advance(_rooms[room_id])
-    return redirect(url_for("room", room_id=room_id))
+    _rooms[room_id] = room
+    _advance(room)
+    return save(room_id, room, redirect(url_for("room", room_id=room_id)))
 
 
 def _advance(room: dict) -> None:
@@ -144,6 +231,8 @@ def auto_build(room: dict) -> bool:
 @app.get("/draft/<room_id>")
 def room(room_id: str):
     room = _room(room_id)
+    if room is None:
+        return render_template("gone.html", room_id=room_id), 404
     state: DraftState = room["state"]
     players, _ = _load()
     seat = room["seat"]
@@ -182,6 +271,7 @@ def room(room_id: str):
         auto_weights=state.category_weights(seat) if mine else None,
         emphasis=state.emphasis.get(seat, {}),
         max_emphasis=MAX_EMPHASIS,
+        confirm_restart=request.args.get("restart") == "1",
         my_turn=state.on_the_clock == seat,
         log=list(reversed(state.picks)),
     )
@@ -190,41 +280,63 @@ def room(room_id: str):
 @app.post("/draft/<room_id>/pick")
 def pick(room_id: str):
     room = _room(room_id)
+    if room is None:
+        return render_template("gone.html", room_id=room_id), 404
     player = request.form.get("player", "").strip()
     try:
         room["state"].make_pick(player)
     except ValueError as e:
-        return redirect(url_for("room", room_id=room_id, error=str(e)))
+        return save(room_id, room, redirect(url_for("room", room_id=room_id, error=str(e))))
     _advance(room)
-    return redirect(url_for("room", room_id=room_id))
+    return save(room_id, room, redirect(url_for("room", room_id=room_id)))
+
+
+@app.post("/draft/<room_id>/restart")
+def restart(room_id: str):
+    """Abandon this draft and go back to setup.
+
+    Behind a confirmation because it throws away a draft in progress, and a
+    manager reaching for it after something went wrong should not be able to
+    destroy a good draft with one stray click.
+    """
+    _rooms.pop(room_id, None)
+    response = redirect(url_for("setup"))
+    response.delete_cookie(COOKIE + room_id)
+    return response
 
 
 @app.post("/draft/<room_id>/settings")
 def settings(room_id: str):
     room = _room(room_id)
+    if room is None:
+        return render_template("gone.html", room_id=room_id), 404
     for key in ("build_mode", "draft_mode"):
         value = request.form.get(key)
         if value in {"auto", "manual"}:
             room[key] = value
     _advance(room)
-    return redirect(url_for("room", room_id=room_id))
+    return save(room_id, room, redirect(url_for("room", room_id=room_id)))
 
 
 @app.post("/draft/<room_id>/clear-punt")
 def clear_punt(room_id: str):
     room = _room(room_id)
+    if room is None:
+        return render_template("gone.html", room_id=room_id), 404
     room["state"].clear_punt(room["seat"])
-    return redirect(url_for("room", room_id=room_id))
+    return save(room_id, room, redirect(url_for("room", room_id=room_id)))
 
 
 @app.post("/draft/<room_id>/emphasis")
 def emphasis(room_id: str):
     """Per-category emphasis, multiplied over the automatic weighting."""
     room = _room(room_id)
+    if room is None:
+        return render_template("gone.html", room_id=room_id), 404
     state: DraftState = room["state"]
     if request.form.get("reset"):
         state.clear_emphasis(room["seat"])
-        return redirect(url_for("room", room_id=room_id))
+        return save(room_id, room, redirect(url_for("room", room_id=room_id)))
     for category in state.league.categories:
         raw = request.form.get(f"w_{category}")
         if raw is None:
@@ -233,12 +345,14 @@ def emphasis(room_id: str):
             state.set_emphasis(room["seat"], category, float(raw))
         except ValueError:
             continue
-    return redirect(url_for("room", room_id=room_id))
+    return save(room_id, room, redirect(url_for("room", room_id=room_id)))
 
 
 @app.post("/draft/<room_id>/punt")
 def punt(room_id: str):
     room = _room(room_id)
+    if room is None:
+        return render_template("gone.html", room_id=room_id), 404
     state: DraftState = room["state"]
     chosen = tuple(c for c in request.form.get("build", "").split(",") if c)
     if len(chosen) > state.league.max_punts:
@@ -248,7 +362,7 @@ def punt(room_id: str):
     else:
         state.clear_punt(room["seat"])   # "no build" is a legitimate choice
     _advance(room)
-    return redirect(url_for("room", room_id=room_id))
+    return save(room_id, room, redirect(url_for("room", room_id=room_id)))
 
 
 if __name__ == "__main__":

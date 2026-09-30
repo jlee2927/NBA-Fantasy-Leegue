@@ -1,0 +1,28 @@
+{% extends "base.html" %}
+{% block title %}PuntFit - draft not found{% endblock %}
+{% block body %}
+<h1>That draft is no longer available</h1>
+<p class="sub">Nothing was lost on your side &mdash; the server simply does not
+  have this one any more.</p>
+
+<div class="panel" style="max-width:560px">
+  <p>This usually means one of:</p>
+  <ul style="margin:0 0 14px 18px; padding:0">
+    <li>the app was updated or restarted while the draft was open</li>
+    <li>it was left open for more than half a day</li>
+    <li>it was started in a different browser, or a private window</li>
+    <li>the projections were refreshed, so the picks could no longer be
+      matched to the right players</li>
+  </ul>
+  <p class="muted" style="font-size:13px">
+    A draft is kept in your own browser so it survives the app restarting. It
+    cannot survive the projections themselves changing underneath it, because
+    the picks would then point at the wrong players &mdash; better to say so
+    than to hand you somebody else's team.
+  </p>
+  <p style="margin-top:14px">
+    <a class="pill" href="{{ url_for('setup') }}"
+       style="padding:8px 14px; text-decoration:none">Start a new draft</a>
+  </p>
+</div>
+{% endblock %}

@@ -47,6 +47,102 @@ def test_an_unknown_room_is_a_404(client):
     assert client.get("/draft/nosuchroom").status_code == 404
 
 
+# ------------------------------------------------ surviving a server restart
+def _play(client, room, picks):
+    for _ in range(picks):
+        client.post(f"{room}/pick", data={"player": _first_player(client, room)})
+
+
+def test_a_draft_survives_the_server_restarting(client):
+    """A deploy, a crash or a free instance idling out all empty the server's
+    memory. Losing someone's draft at pick 90 is unrecoverable, so the browser
+    keeps the authoritative copy and the room is replayed from it."""
+    from puntfit.app import _rooms
+
+    room = _start(client, mode="mock", seat="7")
+    _play(client, room, 3)
+    client.post(f"{room}/punt", data={"build": "tov"})
+    before = _text(client, room)
+
+    _rooms.clear()                      # exactly what a redeploy does
+
+    after = _text(client, room)
+    assert re.search(r"Every pick \((\d+)\)", after).group(1) == \
+           re.search(r"Every pick \((\d+)\)", before).group(1)
+    assert re.search(r"Your roster \((\d+)\)", after).group(1) == \
+           re.search(r"Your roster \((\d+)\)", before).group(1)
+    assert "punting" in after.split("Best available")[0]
+
+
+def test_a_rebuilt_draft_keeps_its_settings(client):
+    from puntfit.app import _rooms
+
+    room = _start(client, mode="live", seat="4", teams="10", rounds="8",
+                  build_mode="auto")
+    _play(client, room, 2)
+    _rooms.clear()
+
+    page = _text(client, room)
+    assert "you are team 4 of 10" in page
+    assert "live draft" in page
+    # the toggles are part of the draft, not of the server that forgot it
+    assert '<option value="auto" selected>Pick one for me</option>' in page
+    assert '<option value="manual" selected>I choose</option>' in page
+
+
+def test_a_forgotten_draft_explains_itself(client):
+    """Rather than a bare Flask 404 with no way forward."""
+    r = client.get("/draft/neverexisted")
+    assert r.status_code == 404
+    assert b"no longer available" in r.data
+    assert b"Start a new draft" in r.data
+
+
+def test_a_changed_projection_set_refuses_to_replay(client):
+    """Picks travel as positions in the player list, so replaying them against
+    a different list would hand someone another player's team."""
+    from puntfit.app import _rooms, app as flask_app
+
+    room = _start(client)
+    _play(client, room, 2)
+    _rooms.clear()
+    players = flask_app.config["players"]
+    flask_app.config["players"] = players.iloc[:-5]      # projections refreshed
+    try:
+        assert client.get(room).status_code == 404
+    finally:
+        flask_app.config["players"] = players
+
+
+# -------------------------------------------------------------- starting over
+def test_starting_over_asks_first(client):
+    room = _start(client)
+    _play(client, room, 2)
+    assert "start over" in _text(client, room)
+
+    confirm = _text(client, f"{room}?restart=1")
+    assert "Start over?" in confirm
+    assert "cannot be undone" in confirm
+    picks, mine = re.search(r"(\d+) picks? so far, including your (\d+)", confirm).groups()
+    assert int(picks) > 0 and int(mine) == 2
+
+
+def test_declining_keeps_the_draft(client):
+    room = _start(client)
+    _play(client, room, 2)
+    before = re.search(r"Every pick \((\d+)\)", _text(client, room)).group(1)
+    client.get(f"{room}?restart=1")                      # looked, did not confirm
+    assert re.search(r"Every pick \((\d+)\)", _text(client, room)).group(1) == before
+
+
+def test_confirming_ends_the_draft(client):
+    room = _start(client)
+    _play(client, room, 2)
+    r = client.post(f"{room}/restart")
+    assert r.status_code == 302 and r.headers["Location"] == "/"
+    assert client.get(room).status_code == 404          # cookie cleared too
+
+
 def test_healthy_players_get_no_injury_badge(client):
     """A missing status arrives as NaN, which is truthy in a template and
     rendered a "nan" badge beside every healthy player."""

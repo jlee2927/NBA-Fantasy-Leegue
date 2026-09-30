@@ -20,13 +20,18 @@ import uuid
 from pathlib import Path
 
 import pandas as pd
-from flask import Flask, make_response, redirect, render_template, request, url_for
+from flask import (Flask, make_response, redirect, render_template, request,
+                   send_from_directory, url_for)
 
 from . import managers as Mg
 from .categories import FORMATS
 from .draft import MAX_EMPHASIS, NEUTRAL_EMPHASIS, DraftState, League
 from .fetch_injuries import label as label_injuries
 from .valuation import load_projections
+
+# The landing page is the same files GitHub Pages serves, not a copy of them,
+# so the two can never drift apart.
+DOCS = Path(__file__).resolve().parent.parent / "docs"
 
 PROJECTIONS = Path("data/marcel_projections.json")
 PROSPECTS = Path("data/prospect_projections.json")
@@ -148,7 +153,23 @@ def _room(room_id: str) -> dict | None:
     return room
 
 
-@app.route("/")
+@app.get("/")
+def home():
+    """The front door is the landing page, not the draft room."""
+    return send_from_directory(DOCS, "index.html")
+
+
+@app.get("/assets/<path:name>")
+def landing_asset(name: str):
+    return send_from_directory(DOCS / "assets", name)
+
+
+@app.get("/draft-board.html")
+def draft_board():
+    return send_from_directory(DOCS, "draft-board.html")
+
+
+@app.get("/draft")
 def setup():
     _, params = _load()
     return render_template("setup.html", params=params, formats=list(FORMATS))

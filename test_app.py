@@ -31,8 +31,22 @@ def _text(client, room):
     return re.sub(r"\s+", " ", client.get(room).data.decode())
 
 
-def test_setup_page_renders(client):
+def test_the_front_door_is_the_landing_page(client):
+    """Somebody arriving at the site should meet the pitch, not a form. The
+    draft lives one level in, at /draft."""
     r = client.get("/")
+    assert r.status_code == 200
+    assert b"DRAFT<br>WITH <span>INTENT.</span>" in r.data
+    assert b"New draft" not in r.data
+
+
+def test_the_landing_page_serves_its_own_stylesheet(client):
+    assert client.get("/assets/site.css").status_code == 200
+    assert client.get("/assets/ball.js").status_code == 200
+
+
+def test_setup_page_renders(client):
+    r = client.get("/draft")
     assert r.status_code == 200
     assert b"New draft" in r.data
 
@@ -139,7 +153,7 @@ def test_confirming_ends_the_draft(client):
     room = _start(client)
     _play(client, room, 2)
     r = client.post(f"{room}/restart")
-    assert r.status_code == 302 and r.headers["Location"] == "/"
+    assert r.status_code == 302 and r.headers["Location"] == "/draft"
     assert client.get(room).status_code == 404          # cookie cleared too
 
 

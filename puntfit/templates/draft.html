@@ -9,9 +9,33 @@
     {%- if state.punts.get(seat) %} &middot; punting
       <span class="pill">{{ state.punts[seat]|join(' + ') }}</span>
     {%- endif %}
-    {%- if state.complete %} &middot; <strong>draft complete</strong>{% endif %}
   </p>
 </div>
+
+{% if state.complete %}
+  <div class="panel" style="margin-bottom:16px">
+    <strong>Draft complete.</strong>
+    <span class="muted">Every roster is full.</span>
+  </div>
+{% else %}
+  <div class="panel clock {% if my_turn %}mine{% endif %}" style="margin-bottom:16px">
+    {% if my_turn %}
+      <strong>Your pick.</strong>
+      <span class="muted">Team {{ seat + 1 }} is on the clock.</span>
+    {% else %}
+      <strong>Team {{ state.on_the_clock + 1 }} is on the clock.</strong>
+      {% if mode == 'live' %}
+        <span class="muted">
+          You are running this alongside a draft happening elsewhere, so enter
+          whoever team {{ state.on_the_clock + 1 }} takes. Your own pick comes
+          at&nbsp;{{ seat + 1 }}.
+        </span>
+      {% else %}
+        <span class="muted">Waiting on them.</span>
+      {% endif %}
+    {% endif %}
+  </div>
+{% endif %}
 
 <form method="post" action="{{ url_for('settings', room_id=room_id) }}"
       class="panel" style="margin-bottom:16px; display:flex; gap:18px; flex-wrap:wrap; align-items:center">
@@ -205,17 +229,24 @@
     </div>
 
     <div class="panel">
-      <h2>Recent picks</h2>
-      {% if recent %}
-      <table>
-        {% for p in recent %}
-        <tr>
-          <td class="muted n">{{ p.number + 1 }}</td>
-          <td class="muted">T{{ p.team + 1 }}{% if p.team == seat %} (you){% endif %}</td>
-          <td>{{ p.player }}</td>
-        </tr>
-        {% endfor %}
-      </table>
+      <h2>Every pick ({{ log|length }})</h2>
+      {% if log %}
+      <div style="max-height:320px; overflow-y:auto">
+        <table>
+          {% for p in log %}
+          <tr {% if p.team == seat %}style="background:#eef3fb"{% endif %}>
+            <td class="muted n">{{ p.number + 1 }}</td>
+            <td class="muted">
+              R{{ p.number // state.league.teams + 1 }}
+            </td>
+            <td class="muted">
+              T{{ p.team + 1 }}{% if p.team == seat %} <strong>you</strong>{% endif %}
+            </td>
+            <td>{{ p.player }}</td>
+          </tr>
+          {% endfor %}
+        </table>
+      </div>
       {% else %}<p class="muted">No picks yet.</p>{% endif %}
     </div>
   </div>

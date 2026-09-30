@@ -182,8 +182,8 @@ def room(room_id: str):
         auto_weights=state.category_weights(seat) if mine else None,
         emphasis=state.emphasis.get(seat, {}),
         max_emphasis=MAX_EMPHASIS,
-        my_turn=state.on_the_clock == seat or room["mode"] == "live",
-        recent=list(reversed(state.picks[-12:])),
+        my_turn=state.on_the_clock == seat,
+        log=list(reversed(state.picks)),
     )
 
 

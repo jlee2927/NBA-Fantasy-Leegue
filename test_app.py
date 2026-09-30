@@ -1,3 +1,4 @@
+import re
 import pytest
 
 from puntfit.app import app as flask_app
@@ -92,6 +93,38 @@ def test_a_seat_past_the_league_size_is_pulled_back(client):
 def test_live_mode_does_not_draft_for_you(client):
     """Every seat is entered by hand, so opening the room must not advance it."""
     assert b"No picks yet" in client.get(_start(client, mode="live")).data
+
+
+def test_a_mock_makes_the_earlier_seats_pick_before_you(client):
+    """Drawing pick 7 has to mean six players are gone before your turn."""
+    page = _text(client, _start(client, mode="mock", seat="7"))
+    assert "Round 1 &middot; pick 7" in page or "Round 1 · pick 7" in page
+    assert "Your pick." in page
+    assert "Every pick (6)" in page
+
+
+def test_live_mode_says_whose_pick_you_are_entering(client):
+    """Live mode has no simulated managers - you type in every team's pick -
+    and looking identical to a mock is what made that confusing."""
+    room = _start(client, mode="live", seat="7")
+    page = _text(client, room)
+    assert "Team 1 is on the clock." in page
+    assert "enter whoever team 1 takes" in page
+
+    for _ in range(6):                      # enter the six picks ahead of you
+        client.post(f"{room}/pick", data={"player": _first_player(client, room)})
+    assert "Your pick." in _text(client, room)
+
+
+def test_taken_players_leave_the_board(client):
+    room = _start(client, mode="mock", seat="7")
+    page = client.get(room).data.decode()
+    log = page.split("Every pick")[1]
+    taken = re.findall(r"<td>([^<]+)</td>\s*</tr>", log)
+    board = page.split("Best available")[1].split("Every pick")[0]
+    assert len(taken) == 6
+    for name in taken:
+        assert f'value="{name}"' not in board, name
 
 
 # ------------------------------------------------------------ punt builds
@@ -192,7 +225,7 @@ def test_switching_to_automatic_mid_draft_applies_a_build(client):
 def test_automatic_picks_run_the_draft_out(client):
     room = _start(client, draft_mode="auto")
     page = _text(client, room)
-    assert "draft complete" in page
+    assert "Draft complete" in page
     assert "Your roster (13)" in page
 
 

@@ -1,4 +1,4 @@
-"""Current injury status for PuntFit.
+"""Current injury status for NBA Fantasy Leegue.
 
 Pulls ESPN's live injury feed and writes data/injuries.csv, keyed on the same
 athlete_id as the rest of the pipeline. ESPN's own player ids are used, so no

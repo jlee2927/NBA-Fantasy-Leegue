@@ -1,7 +1,7 @@
 {% extends "base.html" %}
-{% block title %}PuntFit - new draft{% endblock %}
+{% block title %}NBA Fantasy Leegue - new draft{% endblock %}
 {% block body %}
-<h1>PuntFit</h1>
+<h1>NBA Fantasy Leegue</h1>
 <p class="sub">Category-league draft assistant &middot; {{ params.target_season }} projections</p>
 
 <form method="post" action="{{ url_for('create') }}" class="panel" style="max-width:520px">
@@ -39,7 +39,7 @@
   </p>
 
   <p class="muted" style="font-size:13px">
-    Make your first-round pick, and PuntFit will suggest the punt builds that
+    Make your first-round pick and you will be offered the punt builds that
     fit that player. Confirm one and every later round is ranked against it.
   </p>
 

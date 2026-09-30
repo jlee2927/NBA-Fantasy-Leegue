@@ -309,7 +309,7 @@ if __name__ == "__main__":
     table.to_csv(a.values)
     fmt = "9-cat" if "tov" in cats else "8-cat"
     write_board(table.head(a.limit), a.board, cats,
-                f"PuntFit draft board - {params.get('target_season', '')} ({fmt})",
+                f"NBA Fantasy Leegue draft board - {params.get('target_season', '')} ({fmt})",
                 a.palette)
     print(json.dumps({"players": len(df), "categories": list(cats),
                       "pool": len(pool), "report": str(a.out),

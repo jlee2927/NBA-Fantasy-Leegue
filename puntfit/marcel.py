@@ -1,5 +1,5 @@
 """
-Marcel projections for PuntFit.
+Marcel projections for NBA Fantasy Leegue.
 
 Builds a delta-method age curve, backtests against held-out seasons to tune k
 (regression) and the playing-time baselines, then projects the next season.

@@ -1,4 +1,4 @@
-"""hoopR (ESPN) data layer for PuntFit.
+"""hoopR (ESPN) data layer for NBA Fantasy Leegue.
 
 Downloads NBA player box scores and player bios from the sportsdataverse
 hoopR-nba-data repo, caches them under data/hoopr/, and aggregates them into

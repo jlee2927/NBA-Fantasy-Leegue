@@ -18,8 +18,8 @@
       <span>NBA FANTASY <span class="brand-accent">LEEGUE.</span></span>
     </a>
     <nav aria-label="Main navigation" class="desktop-nav">
-      <a href="#advantage">The advantage</a>
       <a href="#process">How it works</a>
+      <a href="#method">The method</a>
       <a href="#evidence">The evidence</a>
       <a href="draft-board.html">Draft board</a>
     </nav>
@@ -160,6 +160,229 @@
         <div class="process-foot">
           <span>BUILT FOR CATEGORY-LEAGUE DRAFTS</span>
           <span>MOCK OR LIVE. ALWAYS YOUR CALL.</span>
+        </div>
+      </div>
+    </section>
+
+    <section id="method" class="method-section">
+      <div class="section-wrap">
+        <div class="method-header">
+          <div>
+            <div class="eyebrow eyebrow-dark"><span class="eyebrow-line"></span> HOW THE NUMBERS ARE MADE</div>
+            <h2>FROM BOX<br>SCORES TO <em>RANKS.</em></h2>
+          </div>
+          <p>The short version is above each calculation. Open one only if you
+             want to see the arithmetic behind it.</p>
+        </div>
+
+        <div class="method-steps">
+
+          <article class="method-step">
+            <span class="process-number">01 / THE PROJECTION</span>
+            <h3>Three seasons, not one.</h3>
+            <p>
+              Last season alone is a noisy guess: a player who shot unusually
+              well for one year is unlikely to repeat it. So three seasons are
+              blended, the most recent counting most, and the result is pulled
+              part of the way back toward league average.
+            </p>
+            <p>
+              How far back depends on the category. Assists are stable, so a
+              player's own assist rate is mostly believed. Three-point
+              percentage swings wildly year to year, so it gets dragged much
+              closer to average. That amount is fitted from past seasons, not
+              chosen by hand.
+            </p>
+            <details class="deeper">
+              <summary>SHOW THE CALCULATION</summary>
+              <div class="deeper-body">
+<pre class="code">WEIGHTS = (5, 4, 3)              <span class="c"># Y-1, Y-2, Y-3</span>
+
+wstat = sum(w * wide[s].get(y, 0) for w, y in zip(WEIGHTS, yrs))
+rate  = (wstat + k[s] * lg_rate[s]) / (wmin + k[s])</pre>
+                <p class="code-note">
+                  <code>wstat</code> is the player's counting stat over three
+                  seasons, weighted 5&ndash;4&ndash;3. <code>wmin</code> is their
+                  minutes weighted the same way. Dividing one by the other would
+                  give a plain per-minute rate.
+                </p>
+                <p class="code-note">
+                  The <code>k</code> terms are what make it a projection. Adding
+                  <code>k</code> minutes of league-average production to the top
+                  and <code>k</code> minutes to the bottom is the same as saying
+                  "pretend this player also played <code>k</code> minutes of
+                  exactly average basketball." A small <code>k</code> trusts the
+                  player; a large one buries them in the league average. Each
+                  category gets its own, fitted on earlier seasons only.
+                </p>
+              </div>
+            </details>
+          </article>
+
+          <article class="method-step">
+            <span class="process-number">02 / AGEING</span>
+            <h3>Players are not static.</h3>
+            <p>
+              A 23-year-old and a 34-year-old coming off identical seasons are
+              not identical bets. Rather than assume a curve, the curve is
+              measured: every player who appeared in two consecutive seasons is
+              compared against himself, and the average change at each age
+              becomes the adjustment.
+            </p>
+            <p>
+              Turnovers are left alone. The method assumes more is better, which
+              is false for the one category where fewer is better.
+            </p>
+            <details class="deeper">
+              <summary>SHOW THE CALCULATION</summary>
+              <div class="deeper-body">
+<pre class="code"><span class="c"># Pairs weighted by the harmonic mean of both seasons' minutes,
+# so a pair of full seasons counts more than a pair of cameos.</span>
+a[<span class="s">"w"</span>] = 2 / (1 / a.min1 + 1 / a.min2)
+
+y = np.log(b.n / b.d)
+coef = np.polyfit(b.index, y, 2, w=np.sqrt(b.w))
+out[s] = np.exp(np.polyval(coef, ages))</pre>
+                <p class="code-note">
+                  Comparing a player only against himself removes the problem
+                  that good players last longer: if you simply averaged every
+                  34-year-old, you would be averaging the survivors and ageing
+                  would look painless.
+                </p>
+                <p class="code-note">
+                  Four or five one-year transitions leave some ages very thin, so
+                  the raw factors are smoothed with a weighted quadratic fitted
+                  in log space &mdash; log because the effect is multiplicative,
+                  and fitting it as a straight sum would let one noisy age bucket
+                  swing the whole curve.
+                </p>
+              </div>
+            </details>
+          </article>
+
+          <article class="method-step">
+            <span class="process-number">03 / PLAYING TIME</span>
+            <h3>Minutes and games, separately.</h3>
+            <p>
+              A rate is worth nothing without the playing time to apply it to,
+              and availability is its own skill. Games are projected as a share
+              of the schedule rather than a count, which matters because not
+              every season has been 82 games: the 2012 lockout ran 66, and the
+              2020 and 2021 seasons were cut short too.
+            </p>
+            <details class="deeper">
+              <summary>SHOW THE CALCULATION</summary>
+              <div class="deeper-body">
+<pre class="code">s1, s2 = wide[<span class="s">"g_share"</span>].get(yrs[0], 0), wide[<span class="s">"g_share"</span>].get(yrs[1], 0)
+out[<span class="s">"proj_g"</span>] = np.clip(0.5 * s1 + 0.1 * s2 + game_base, 0, 1) * FULL_SEASON</pre>
+                <p class="code-note">
+                  Half of last season's availability, a tenth of the season
+                  before, plus a baseline. The baseline is what stops a player
+                  who missed almost everything from being projected at almost
+                  nothing &mdash; most of them come back. For the 2026 season the
+                  fitted values were a <code>game_base</code> of 0.225 and a
+                  minutes baseline of 500.
+                </p>
+                <p class="code-note">
+                  Storing games as a share is what lets a 66-game lockout season
+                  and an 82-game season inform the same baseline without one
+                  dragging the other down.
+                </p>
+              </div>
+            </details>
+          </article>
+
+          <article class="method-step">
+            <span class="process-number">04 / VALUATION</span>
+            <h3>Every category counts the same.</h3>
+            <p>
+              A projection is a pile of statistics; a draft needs one number.
+              Each category is converted into standard deviations from the
+              average of the draftable pool, so scarcity decides worth rather
+              than raw size.
+            </p>
+            <p>
+              That is why one extra steal per game beats eighteen extra points.
+              Almost every draftable player gets about one steal, so two is
+              genuinely rare &mdash; while one more point separates nobody.
+            </p>
+            <details class="deeper">
+              <summary>SHOW THE CALCULATION</summary>
+              <div class="deeper-body">
+<pre class="code">sd = ref[c].std(ddof=0)
+z[c] = (values[c] - ref[c].mean()) / sd
+if c in NEGATIVE:                <span class="c"># turnovers: fewer is better</span>
+    z[c] = -z[c]
+
+z[<span class="s">"total"</span>] = z[list(cats)].mean(axis=1)</pre>
+                <p class="code-note">
+                  Percentages need care. A 100% shooter on one attempt has not
+                  helped anybody, so the ratio categories are scored by how far
+                  a player moves the team total, which scales with volume:
+                </p>
+<pre class="code">out[c] = df[made] - (ref[made].sum() / ref[att].sum()) * df[att]</pre>
+                <p class="code-note">
+                  Written that way rather than as
+                  <code>(pct - league_pct) * attempted</code> because the two are
+                  algebraically identical, and this form leaves a player with
+                  zero attempts at zero impact instead of dividing by zero.
+                </p>
+                <p class="code-note">
+                  There is a circularity to resolve: the averages should come
+                  from draftable players, but the z-scores are what decide who is
+                  draftable. The pool is seeded by minutes and re-ranked until it
+                  stops moving.
+                </p>
+<pre class="code">pool = df.nlargest(n, <span class="s">"proj_mpg"</span>).index
+for _ in range(MAX_PASSES):
+    z = z_scores(category_values(df, cats, pool), cats, pool)
+    nxt = z[list(cats)].sum(axis=1).nlargest(n).index
+    if frozenset(nxt) == frozenset(pool):
+        break
+    pool = nxt</pre>
+              </div>
+            </details>
+          </article>
+
+          <article class="method-step">
+            <span class="process-number">05 / PUNTING</span>
+            <h3>Giving one up on purpose.</h3>
+            <p>
+              In a category league you win a week by taking most of the
+              categories, not by being adequate at all of them. Deciding in
+              advance to lose one frees you to stop paying for it &mdash; which
+              is why a high-turnover guard climbs the board the moment turnovers
+              stop counting.
+            </p>
+            <p>
+              Mechanically a punt is just dropping that category out of the
+              average. Everything else is unchanged; the board simply re-sorts.
+            </p>
+            <details class="deeper">
+              <summary>SHOW THE CALCULATION</summary>
+              <div class="deeper-body">
+                <p class="code-note">
+                  The mean is taken over the categories still being contested, so
+                  a punted category contributes nothing rather than counting as a
+                  loss. Using the mean rather than the sum is also what keeps an
+                  8-category score comparable with a 9-category one, and stops
+                  punting three categories from deflating every number on the
+                  board.
+                </p>
+                <p class="code-note">
+                  Builds are capped at four punts in 9-cat. Punting five means
+                  giving up the majority before the draft starts, which is losing
+                  every week by construction.
+                </p>
+              </div>
+            </details>
+          </article>
+
+        </div>
+
+        <div class="method-foot">
+          <span>EVERY CONSTANT FITTED FROM PRIOR SEASONS</span>
+          <span>NOTHING HAND-TUNED</span>
         </div>
       </div>
     </section>

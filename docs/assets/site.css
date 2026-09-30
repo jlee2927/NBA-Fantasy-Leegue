@@ -194,6 +194,56 @@ h1, h2, .watch-card h3 {
   font-weight: 700; letter-spacing: .16em; padding-top: 21px;
 }
 
+/* --- how the numbers are made ------------------------------------------ */
+.method-section { background: #edece5; color: #171c18; padding: 110px 0 30px; }
+.method-header { display: flex; justify-content: space-between; align-items: end; gap: 40px; margin-bottom: 55px; }
+.method-header h2 { font-size: clamp(74px, 8.6vw, 136px); line-height: .82; margin-top: 30px; }
+.method-header h2 em { color: #ce693c; font-style: normal; }
+.method-header p { max-width: 300px; color: #59615a; font-size: 14px; line-height: 1.75; padding-bottom: 10px; }
+.method-steps { max-width: 860px; border-top: 1px solid #c5c8be; }
+.method-step { padding: 26px 0; border-bottom: 1px solid #c5c8be; }
+.method-step h3 {
+  font-family: 'Barlow Condensed', sans-serif; font-size: 34px; font-weight: 700;
+  letter-spacing: -.025em; margin: 9px 0 8px;
+}
+.method-step > p { color: #4e564f; font-size: 14px; line-height: 1.75; max-width: 680px; }
+.method-step > p + p { margin-top: 11px; }
+
+/* The detail is folded away by default: the paragraphs above each one are the
+   whole explanation for anybody who does not want the arithmetic. */
+.deeper { margin-top: 16px; }
+.deeper summary {
+  cursor: pointer; display: inline-flex; align-items: center; gap: 9px;
+  font-size: 9px; font-weight: 700; letter-spacing: .15em; color: #a7522e;
+  list-style: none; padding: 7px 0;
+}
+.deeper summary::-webkit-details-marker { display: none; }
+.deeper summary:before {
+  content: '+'; display: grid; place-items: center; width: 17px; height: 17px;
+  border: 1px solid currentColor; border-radius: 50%; font-size: 12px;
+  font-weight: 400; line-height: 1;
+}
+.deeper[open] summary:before { content: '\2212'; }
+.deeper summary:hover { color: #ce693c; }
+.deeper-body { padding-top: 12px; }
+pre.code {
+  background: #171c18; color: #e4e2d8; padding: 15px 17px; border-radius: 9px;
+  overflow-x: auto; margin: 0 0 12px;
+  font: 12px/1.7 ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+}
+pre.code .c { color: #8a9784; }
+pre.code .s { color: #e0a06d; }
+.code-note { color: #59615a; font-size: 13px; line-height: 1.7; max-width: 680px; }
+.code-note + .code-note { margin-top: 9px; }
+.code-note code {
+  background: #dedcd2; padding: 1px 5px; border-radius: 4px;
+  font: 12px ui-monospace, SFMono-Regular, Menlo, monospace;
+}
+.method-foot {
+  display: flex; justify-content: space-between; gap: 20px; color: #70776e;
+  font-size: 9px; font-weight: 700; letter-spacing: .16em; padding-top: 20px;
+}
+
 /* --- how it was checked ------------------------------------------------ */
 .evidence-section { background: #edece5; color: #171c18; padding: 20px 0 110px; }
 .evidence-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px; margin-top: 34px; }
@@ -347,6 +397,14 @@ h1, h2, .watch-card h3 {
   .process-card h3 { font-size: 33px; }
   .process-card p { margin-top: 3px; }
   .process-foot { gap: 20px; font-size: 8px; }
+  .method-section { padding: 80px 0 24px; }
+  .method-header { display: block; margin-bottom: 36px; }
+  .method-header h2 { font-size: clamp(60px, 12vw, 95px); margin-top: 24px; }
+  .method-header p { margin-top: 26px; }
+  .method-step { padding: 22px 0; }
+  .method-step h3 { font-size: 28px; }
+  pre.code { font-size: 11px; padding: 13px 14px; }
+  .method-foot { display: block; }
   .evidence-section { padding: 10px 0 80px; }
   .watch-section { padding: 80px 0 70px; }
   .watch-header { display: block; margin-bottom: 38px; }

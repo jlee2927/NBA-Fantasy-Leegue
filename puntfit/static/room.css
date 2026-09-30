@@ -1,0 +1,182 @@
+/* Draft room styling, matching the landing page in docs/.
+   Same palette, same typefaces, same orange accent.
+
+   The room is a dense table used under time pressure, so the court sits well
+   behind everything and the panels over it are close to opaque. Atmosphere at
+   the edges, legibility where the numbers are. */
+
+@import url('https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@600;700;800&family=DM+Sans:wght@400;500;600;700&display=swap');
+
+:root {
+  --ink: #f4f1e9;
+  --muted: #9aa197;
+  --line: rgba(244,241,233,.13);
+  --bg: #101310;
+  --panel: rgba(19,23,19,.90);
+  --accent: #e87840;
+  --warn: #e2664c;
+  /* Kept apart from the orange on purpose: orange means "brand or action",
+     blue and red mean "this number is good or bad". Blue/red is the pairing
+     that survives red-green colour blindness. */
+  --good: #6aa5ea;
+  --bad: #e2664c;
+}
+
+* { box-sizing: border-box; }
+
+body {
+  font: 14px/1.5 'DM Sans', -apple-system, "Segoe UI", sans-serif;
+  margin: 0; color: var(--ink); background: var(--bg);
+  -webkit-font-smoothing: antialiased;
+}
+
+/* --- the court --------------------------------------------------------- */
+/* Drawn rather than photographed: no licensing question, stays sharp at any
+   screen size, and costs a couple of kB instead of a megabyte. */
+.court {
+  position: fixed; inset: 0; z-index: -2; overflow: hidden;
+  background:
+    /* the sheen of a freshly conditioned floor */
+    radial-gradient(ellipse 80% 55% at 28% 12%, rgba(255,231,188,.22), transparent 62%),
+    radial-gradient(ellipse 60% 40% at 82% 88%, rgba(255,214,160,.10), transparent 65%),
+    /* plank seams, running the length of the floor */
+    repeating-linear-gradient(0deg, rgba(60,30,8,.34) 0 2px, transparent 2px 84px),
+    /* grain within each plank */
+    repeating-linear-gradient(0deg, rgba(92,52,18,.09) 0 3px, transparent 3px 11px),
+    /* neighbouring planks cut from different boards */
+    repeating-linear-gradient(0deg, rgba(255,240,215,.045) 0 84px, rgba(58,30,8,.05) 84px 168px),
+    linear-gradient(168deg, #c08a4a, #a2702f 46%, #7c5322);
+}
+.court svg { position: absolute; inset: 0; width: 100%; height: 100%; }
+.court .lines { fill: none; stroke: rgba(255,247,234,.62); stroke-width: 4; }
+.court .paint { fill: rgba(188,84,40,.42); }
+
+/* Everything above is dimmed hard, so the table on top stays readable. */
+.court:after {
+  content: ''; position: absolute; inset: 0;
+  background:
+    radial-gradient(ellipse 105% 85% at 50% 34%, rgba(10,12,10,.50), rgba(10,12,10,.79) 76%),
+    linear-gradient(180deg, transparent 55%, rgba(10,12,10,.34));
+}
+
+/* --- header ------------------------------------------------------------ */
+.site-bar {
+  border-bottom: 1px solid var(--line);
+  background: rgba(14,17,14,.72);
+  backdrop-filter: blur(9px);
+  position: sticky; top: 0; z-index: 30;
+}
+.site-bar .inner {
+  max-width: 1240px; margin: 0 auto; padding: 11px 16px;
+  display: flex; align-items: center; justify-content: space-between; gap: 14px;
+}
+.brand {
+  display: inline-flex; align-items: center; gap: 10px; color: var(--ink);
+  font-family: 'Barlow Condensed', sans-serif; font-size: 19px; font-weight: 800;
+  letter-spacing: -.035em; white-space: nowrap; text-decoration: none;
+}
+.brand-accent { color: var(--accent); }
+.brand-mark {
+  width: 23px; height: 23px; border: 2px solid var(--accent); border-radius: 50%;
+  position: relative; display: inline-block; overflow: hidden; transform: rotate(-30deg);
+  flex: none;
+}
+.brand-mark:before, .brand-mark:after { content: ''; position: absolute; background: var(--accent); }
+.brand-mark:before { height: 2px; width: 120%; top: 50%; left: -10%; }
+.brand-mark:after { height: 130%; width: 2px; left: 50%; top: -15%; }
+.brand-mark span {
+  position: absolute; width: 22px; height: 22px; border: 2px solid var(--accent);
+  border-radius: 50%; left: -14px; top: -2px;
+}
+.site-bar a.back {
+  color: var(--muted); font-size: 10px; font-weight: 700; letter-spacing: .13em;
+  text-decoration: none; transition: color .2s; white-space: nowrap;
+}
+.site-bar a.back:hover { color: var(--accent); }
+
+/* --- structure --------------------------------------------------------- */
+.wrap { max-width: 1240px; margin: 0 auto; padding: 20px 16px 48px; }
+a { color: var(--accent); }
+h1 {
+  font-family: 'Barlow Condensed', sans-serif; font-size: 34px; font-weight: 800;
+  letter-spacing: -.03em; margin: 0 0 3px; line-height: 1;
+}
+h2 {
+  font-size: 10px; text-transform: uppercase; letter-spacing: .15em;
+  color: var(--accent); font-weight: 700; margin: 0 0 10px;
+}
+.sub { color: var(--muted); margin: 0 0 18px; }
+.muted { color: var(--muted); }
+
+.panel {
+  border: 1px solid var(--line); border-radius: 10px; padding: 14px;
+  background: var(--panel); backdrop-filter: blur(11px);
+}
+
+.grid { display: grid; grid-template-columns: 1fr 340px; gap: 16px; align-items: start; }
+/* Grid tracks refuse to shrink below their content by default, so without
+   this the wide board pushes the whole page sideways instead of scrolling
+   inside its own panel. */
+.grid > * { min-width: 0; }
+@media (max-width: 900px) { .grid { grid-template-columns: 1fr; } }
+
+/* --- controls ---------------------------------------------------------- */
+button {
+  font: inherit; font-size: 12px; font-weight: 600; cursor: pointer;
+  border: 1px solid var(--line); background: rgba(244,241,233,.06);
+  color: var(--ink); border-radius: 7px; padding: 6px 12px;
+  transition: background .15s, border-color .15s;
+}
+button:hover { background: rgba(244,241,233,.13); border-color: rgba(244,241,233,.3); }
+button.go {
+  background: var(--accent); border-color: var(--accent); color: #17140f; font-weight: 700;
+}
+button.go:hover { background: #f28b58; border-color: #f28b58; }
+
+input, select {
+  font: inherit; font-size: 13px; padding: 6px 9px; color: var(--ink);
+  border: 1px solid var(--line); border-radius: 7px; background: rgba(10,12,10,.6);
+}
+input:focus, select:focus { outline: 2px solid rgba(232,120,64,.55); outline-offset: 1px; }
+select option { background: #171a17; color: var(--ink); }
+input[type=range] { accent-color: var(--accent); padding: 0; border: 0; background: none; }
+input[type=radio] { accent-color: var(--accent); }
+label { font-size: 12px; color: var(--muted); }
+
+/* --- tables ------------------------------------------------------------ */
+table { border-collapse: collapse; width: 100%; }
+th, td {
+  padding: 6px 8px; border-bottom: 1px solid rgba(244,241,233,.07); white-space: nowrap;
+}
+th {
+  text-align: left; font-weight: 700; color: var(--muted); font-size: 10px;
+  text-transform: uppercase; letter-spacing: .1em;
+}
+td.n { text-align: right; font-variant-numeric: tabular-nums; }
+/* The board carries a column per category, so it is wider than a phone. It
+   scrolls inside its own panel rather than dragging the page sideways. */
+.scroll { overflow-x: auto; overscroll-behavior-x: contain; }
+tbody tr:hover { background: rgba(244,241,233,.045); }
+.mine-row, tr.mine-row:hover { background: rgba(232,120,64,.13); }
+
+/* --- pills ------------------------------------------------------------- */
+.pill {
+  display: inline-block; padding: 1px 8px; border-radius: 99px; font-size: 11px;
+  font-weight: 600; background: rgba(232,120,64,.17); color: #f0a077;
+}
+.pill.out { background: rgba(226,102,76,.2); color: #f0907a; }
+.pill.rookie { background: rgba(201,168,90,.17); color: #d8bd7b; }
+
+/* --- on the clock ------------------------------------------------------ */
+.clock { border-left: 3px solid var(--line); }
+.clock.mine { border-left-color: var(--accent); background: rgba(232,120,64,.11); }
+
+/* Positive and negative category totals. */
+.good { color: var(--good); }
+.bad { color: var(--bad); }
+
+@media (max-width: 760px) {
+  .wrap { padding: 16px 12px 40px; }
+  h1 { font-size: 27px; }
+  .site-bar .inner { padding: 9px 12px; }
+}

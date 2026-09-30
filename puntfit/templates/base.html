@@ -1,45 +1,45 @@
 <!doctype html>
 <html lang="en">
+<head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>{% block title %}NBA Fantasy Leegue{% endblock %}</title>
-<style>
-  :root {
-    --ink: #111; --muted: #6b6b6b; --line: #e6e6e6; --bg: #fff;
-    --panel: #fafafa; --accent: #2a78d6; --warn: #d03b3b;
-  }
-  * { box-sizing: border-box; }
-  body { font: 14px/1.5 -apple-system, "Segoe UI", sans-serif; margin: 0;
-         color: var(--ink); background: var(--bg); }
-  a { color: var(--accent); }
-  .wrap { max-width: 1240px; margin: 0 auto; padding: 16px; }
-  h1 { font-size: 18px; margin: 0 0 2px; }
-  h2 { font-size: 13px; text-transform: uppercase; letter-spacing: .04em;
-       color: var(--muted); margin: 0 0 8px; }
-  .sub { color: var(--muted); margin: 0 0 18px; }
-  button { font: inherit; cursor: pointer; border: 1px solid var(--line);
-           background: var(--panel); border-radius: 6px; padding: 5px 10px; }
-  button.go { background: var(--accent); border-color: var(--accent); color: #fff; }
-  button:hover { filter: brightness(.97); }
-  input, select { font: inherit; padding: 5px 8px; border: 1px solid var(--line);
-                  border-radius: 6px; background: #fff; }
-  table { border-collapse: collapse; width: 100%; }
-  th, td { padding: 4px 7px; border-bottom: 1px solid var(--line); white-space: nowrap; }
-  th { text-align: left; font-weight: 600; color: var(--muted); font-size: 12px; }
-  td.n { text-align: right; font-variant-numeric: tabular-nums; }
-  .panel { border: 1px solid var(--line); border-radius: 8px; padding: 12px;
-           background: var(--panel); }
-  .grid { display: grid; grid-template-columns: 1fr 340px; gap: 16px; align-items: start; }
-  @media (max-width: 900px) { .grid { grid-template-columns: 1fr; } }
-  .pill { display: inline-block; padding: 1px 7px; border-radius: 99px;
-          font-size: 12px; background: #eef3fb; color: var(--accent); }
-  .pill.out { background: #fdeeee; color: var(--warn); }
-  .pill.rookie { background: #f4f0e4; color: #7a6220; }
-  .clock { border-left: 3px solid var(--line); }
-  .clock.mine { border-left-color: var(--accent); background: #eef3fb; }
-  .muted { color: var(--muted); }
-</style>
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'><circle cx='16' cy='16' r='15' fill='%23e87840'/><g stroke='%23171b17' stroke-width='2' fill='none'><circle cx='16' cy='16' r='15'/><path d='M16 1v30M1 16h30'/><path d='M5 5a21 21 0 0 0 22 22M27 5A21 21 0 0 1 5 27'/></g></svg>">
+<link rel="stylesheet" href="{{ url_for('static', filename='room.css') }}">
+</head>
 <body>
+
+{# A regulation half court, drawn to scale: ten units to the foot, so the key
+   is 160 by 190 and the arc is 237.5 from the basket. No team markings, which
+   keeps it clear of anybody's trademarks. #}
+<div class="court" aria-hidden="true">
+  <svg viewBox="-20 -40 540 530" preserveAspectRatio="xMidYMid slice">
+    <rect class="paint" x="170" y="280" width="160" height="190"/>
+    <g class="lines">
+      <path d="M0 0 H500"/>
+      <circle cx="250" cy="0" r="60"/>
+      <rect x="170" y="280" width="160" height="190"/>
+      <circle cx="250" cy="280" r="60"/>
+      <path d="M30 470 V330 A237.5 237.5 0 0 1 470 330 V470"/>
+      <path d="M220 430 H280"/>
+      <path d="M210 417.5 A40 40 0 0 1 290 417.5"/>
+      <circle cx="250" cy="417.5" r="7.5"/>
+    </g>
+  </svg>
+</div>
+
+<div class="site-bar">
+  <div class="inner">
+    <a class="brand" href="/">
+      <span class="brand-mark"><span></span></span>
+      <span>NBA FANTASY <span class="brand-accent">LEEGUE.</span></span>
+    </a>
+    <a class="back" href="https://jlee2927.github.io/NBA-Fantasy-Leegue/">
+      THE METHODOLOGY &nearr;
+    </a>
+  </div>
+</div>
+
 <div class="wrap">{% block body %}{% endblock %}</div>
 </body>
 </html>

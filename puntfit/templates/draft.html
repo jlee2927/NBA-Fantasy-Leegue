@@ -112,7 +112,7 @@
         <th class="n">{{ mine[0] }} ranks</th><th class="n">value</th>
       </tr></thead>
       {% for s in builds.itertuples() %}
-      <tr {% if current and s.punt|sort == current|sort %}style="background:#eef3fb"{% endif %}>
+      <tr {% if current and s.punt|sort == current|sort %}class="mine-row"{% endif %}>
         <td><input type="radio" name="build" value="{{ s.punt|join(',') }}"
               {% if current %}{% if s.punt|sort == current|sort %}checked{% endif %}
               {% elif build_mode == 'auto' and s.punt|sort == auto|sort %}checked{% endif %}></td>
@@ -161,6 +161,7 @@
     {% if state.complete %}
       <p class="muted">Every roster is full.</p>
     {% else %}
+    <div class="scroll">
     <table>
       <thead><tr>
         <th></th><th>Player</th><th>Team</th><th>Pos</th>
@@ -200,6 +201,7 @@
       {% endfor %}
       </tbody>
     </table>
+    </div>
     {% endif %}
   </div>
 
@@ -226,7 +228,7 @@
             {% for c in cats %}
             <tr>
               <td>{{ c }}</td>
-              <td class="n" style="color:{{ '#2a78d6' if totals[c].sum() >= 0 else '#d03b3b' }}">
+              <td class="n {{ 'good' if totals[c].sum() >= 0 else 'bad' }}">
                 {{ '%+.1f'|format(totals[c].sum()) }}
               </td>
               <td class="n muted" title="automatic {{ '%.2f'|format(auto_weights[c]) }}">
@@ -257,7 +259,7 @@
       <div style="max-height:320px; overflow-y:auto">
         <table>
           {% for p in log %}
-          <tr {% if p.team == seat %}style="background:#eef3fb"{% endif %}>
+          <tr {% if p.team == seat %}class="mine-row"{% endif %}>
             <td class="muted n">{{ p.number + 1 }}</td>
             <td class="muted">
               R{{ p.number // state.league.teams + 1 }}

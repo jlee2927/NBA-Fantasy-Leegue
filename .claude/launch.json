@@ -6,6 +6,12 @@
       "runtimeExecutable": "python3",
       "runtimeArgs": ["-m", "flask", "--app", "puntfit.app", "run", "--port", "5001", "--debug"],
       "port": 5001
+    },
+    {
+      "name": "landing",
+      "runtimeExecutable": "python3",
+      "runtimeArgs": ["-m", "http.server", "5002", "--directory", "docs"],
+      "port": 5002
     }
   ]
 }

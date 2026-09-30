@@ -1,131 +1,285 @@
 <!doctype html>
 <html lang="en">
+<head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>NBA Fantasy Leegue — category-league draft rankings</title>
-<meta name="description" content="Punt-aware fantasy basketball draft rankings
-      for the 2026-27 season, built from projections rather than opinion.">
-<style>
-  :root {
-    --ink: #111; --muted: #5f5f5f; --line: #e6e6e6;
-    --accent: #2a78d6; --panel: #fafafa;
-  }
-  @media (prefers-color-scheme: dark) {
-    :root:not([data-theme="light"]) {
-      --ink: #f2f2f0; --muted: #a6a59f; --line: #2c2c2a;
-      --accent: #6aa5ea; --panel: #1c1c1b;
-    }
-    :root:not([data-theme="light"]) body { background: #131312; }
-  }
-  * { box-sizing: border-box; }
-  body {
-    font: 16px/1.6 -apple-system, "Segoe UI", sans-serif;
-    color: var(--ink); background: #fff; margin: 0;
-  }
-  .wrap { max-width: 680px; margin: 0 auto; padding: 48px 16px 64px; }
-  h1 { font-size: 30px; margin: 0 0 4px; letter-spacing: -0.02em; }
-  h2 { font-size: 15px; text-transform: uppercase; letter-spacing: .05em;
-       color: var(--muted); margin: 40px 0 10px; }
-  p { margin: 0 0 14px; }
-  .lede { color: var(--muted); font-size: 18px; margin-bottom: 28px; }
-  a { color: var(--accent); }
-  .cta {
-    display: inline-block; background: var(--accent); color: #fff;
-    text-decoration: none; padding: 11px 20px; border-radius: 8px;
-    font-weight: 600;
-  }
-  .cta:hover { filter: brightness(1.07); }
-  ul { padding-left: 20px; margin: 0 0 14px; }
-  li { margin-bottom: 7px; }
-  .note { color: var(--muted); font-size: 14px; }
-  .links { border-top: 1px solid var(--line); margin-top: 40px; padding-top: 20px; }
-  code { background: var(--panel); padding: 1px 5px; border-radius: 4px;
-         font-size: 0.9em; }
-</style>
+<title>NBA Fantasy Leegue — category-league draft assistant</title>
+<meta name="description" content="Draft with intent. Punt-aware fantasy basketball
+      draft rankings for 2026-27, built from projections rather than opinion.">
+<link rel="stylesheet" href="assets/site.css">
+</head>
 <body>
-<div class="wrap">
+<div class="site-shell">
 
-  <h1>NBA Fantasy Leegue</h1>
-  <p class="lede">
-    Punt-aware draft rankings for category-league fantasy basketball,
-    2026&ndash;27.
-  </p>
+  <header class="site-header">
+    <a href="#top" class="brand" aria-label="NBA Fantasy Leegue, back to top">
+      <span class="brand-mark"><span></span></span>
+      <span>NBA FANTASY <span class="brand-accent">LEEGUE.</span></span>
+    </a>
+    <nav aria-label="Main navigation" class="desktop-nav">
+      <a href="#advantage">The advantage</a>
+      <a href="#process">How it works</a>
+      <a href="#evidence">The evidence</a>
+      <a href="draft-board.html">Draft board</a>
+    </nav>
+    <a class="nav-cta" href="https://nba-fantasy-league.onrender.com">
+      ENTER THE DRAFT
+      <svg aria-hidden="true" viewBox="0 0 20 20" fill="none">
+        <path d="M4 16 16 4M6 4h10v10" stroke="currentColor" stroke-width="1.6"
+              stroke-linecap="round" stroke-linejoin="round"/>
+      </svg>
+    </a>
+  </header>
 
-  <p><a class="cta" href="draft-board.html">Open the draft board &rarr;</a></p>
+  <main id="top">
+    <section class="story-stage" data-ball-stage aria-label="Introduction">
+      <div class="story-visual" aria-hidden="true">
+        <div class="visual-sticky">
+          <div class="ball-orbit orbit-one"></div>
+          <div class="ball-orbit orbit-two"></div>
+          <div class="ball-glow"></div>
+          <div class="basketball">
+            <canvas data-ball role="img"
+                    aria-label="A basketball turning on its axis as the page scrolls"></canvas>
+          </div>
+          <span class="orbit-label orbit-label-top">BUILT FOR THE BIG PICTURE / 2026—27</span>
+          <span class="orbit-label orbit-label-bottom">EVERY PICK HAS A PURPOSE — 001</span>
+        </div>
+      </div>
 
-  <h2>The draft assistant</h2>
-  <p>
-    The board above is a fixed ranking. The assistant is the other half: you
-    enter your first pick, it proposes the punt builds that suit that player,
-    and from then on it re-ranks everyone still available around the build you
-    chose and the roster you are building. It runs either as a mock draft
-    against simulated managers, or alongside a real draft happening elsewhere
-    with picks typed in as they go.
-  </p>
-  <p class="note">
-    That part has to run on a server rather than as a page, so it is not here
-    yet. The rankings below are the same ones it uses.
-  </p>
+      <div class="hero section-wrap">
+        <div class="hero-copy">
+          <div class="eyebrow"><span class="eyebrow-line"></span> FANTASY BASKETBALL, REIMAGINED</div>
+          <h1>DRAFT<br>WITH <span>INTENT.</span></h1>
+          <p class="hero-description">
+            The next pick is only as good as the plan behind it. Build a smarter
+            roster with a draft assistant that sees the whole board.
+          </p>
+          <div class="hero-actions">
+            <a class="button button-orange" href="https://nba-fantasy-league.onrender.com">
+              START YOUR DRAFT
+              <svg aria-hidden="true" viewBox="0 0 20 20" fill="none">
+                <path d="M4 16 16 4M6 4h10v10" stroke="currentColor" stroke-width="1.6"
+                      stroke-linecap="round" stroke-linejoin="round"/>
+              </svg>
+            </a>
+            <a class="text-link" href="#process">
+              SEE HOW IT WORKS
+              <svg aria-hidden="true" viewBox="0 0 20 20" fill="none">
+                <path d="M2.5 10h14m-6-6 6 6-6 6" stroke="currentColor" stroke-width="1.6"
+                      stroke-linecap="round" stroke-linejoin="round"/>
+              </svg>
+            </a>
+          </div>
+        </div>
+        <div class="hero-bottom">
+          <span>SCROLL TO GET THE FULL PICTURE</span>
+          <span class="scroll-line"></span>
+          <span>01 / 04</span>
+        </div>
+      </div>
 
-  <h2>What the numbers mean</h2>
-  <p>
-    Every category is scored as standard deviations from the draft-pool
-    average, so each one counts equally. A player's <strong>Value</strong> is
-    the mean of those nine scores. That is why one extra steal per game is
-    worth roughly eighteen extra points per game: almost every draftable
-    player gets about one steal, so the player getting two is genuinely rare,
-    while one more point barely separates anybody.
-  </p>
-  <p>
-    <strong>Punting</strong> a category means dropping it from that average
-    entirely. A manager who gives up on turnovers stops paying for the
-    turnovers a high-usage guard commits, which is why those guards climb the
-    board under that build.
-  </p>
+      <div id="advantage" class="advantage section-wrap">
+        <div class="advantage-copy">
+          <div class="eyebrow"><span class="eyebrow-line"></span> THE ADVANTAGE</div>
+          <h2>A BETTER<br><span>WAY TO</span><br>DRAFT.</h2>
+          <p class="section-intro">
+            Less second-guessing. More clarity at every turn. Make the picks that
+            make sense together.
+          </p>
+          <div class="benefits-list">
+            <div class="benefit">
+              <span class="benefit-number">01</span>
+              <div>
+                <h3>Know your build.</h3>
+                <p>Start with your first-round pick. See the category punt paths
+                   that actually fit your cornerstone.</p>
+              </div>
+              <span class="benefit-plus" aria-hidden="true">+</span>
+            </div>
+            <div class="benefit">
+              <span class="benefit-number">02</span>
+              <div>
+                <h3>Own every round.</h3>
+                <p>Once you choose a direction, every later pick is ranked against
+                   your build, not someone else’s board.</p>
+              </div>
+              <span class="benefit-plus" aria-hidden="true">+</span>
+            </div>
+            <div class="benefit">
+              <span class="benefit-number">03</span>
+              <div>
+                <h3>Draft your way.</h3>
+                <p>Run a mock against automated seats, or bring the assistant to
+                   your live draft.</p>
+              </div>
+              <span class="benefit-plus" aria-hidden="true">+</span>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
 
-  <h2>Where the projections come from</h2>
-  <ul>
-    <li>Marcel projections over 25 seasons of play-by-play data, weighting the
-      last three seasons 5&ndash;4&ndash;3 and regressing toward league
-      average by an amount fitted per category.</li>
-    <li>Rookies have no NBA seasons, so their college production is translated
-      using factors fitted on every player since 2015 who did both, with
-      playing time predicted from draft slot. They are labelled and carry a
-      confidence.</li>
-    <li>Nothing is hand-tuned. Every constant is fitted from prior seasons and
-      checked against seasons it was not fitted on.</li>
-  </ul>
+    <div class="marquee" aria-hidden="true">
+      <div>YOUR LEAGUE. YOUR BUILD. YOUR EDGE. <span>✳</span>
+           YOUR LEAGUE. YOUR BUILD. YOUR EDGE. <span>✳</span>
+           YOUR LEAGUE. YOUR BUILD. YOUR EDGE.</div>
+    </div>
 
-  <h2>How it was checked</h2>
-  <p>
-    Each season is projected using only parameters fitted on earlier seasons,
-    and one season is held back from every stage of tuning.
-  </p>
-  <ul>
-    <!-- GitHub Pages serves .md as plain text; the blob view renders it. -->
-    <li><a href="https://github.com/jlee2927/NBA-Fantasy-Leegue/blob/main/docs/backtest.md">Walk-forward
-      backtest</a> &mdash; 10% better than carrying last season forward, and
-      the held-out season agrees.</li>
-    <li><a href="https://github.com/jlee2927/NBA-Fantasy-Leegue/blob/main/docs/rookie-backtest.md">Rookie
-      translation backtest</a> &mdash; nine of eleven categories beat guessing
-      the class average. Steals do not.</li>
-    <li><a href="https://github.com/jlee2927/NBA-Fantasy-Leegue/blob/main/docs/parity-check.md">Source
-      parity check</a> &mdash; three independent data sources compared before
-      choosing one.</li>
-  </ul>
+    <section id="process" class="process-section">
+      <div class="section-wrap">
+        <div class="process-header">
+          <div>
+            <div class="eyebrow eyebrow-dark"><span class="eyebrow-line"></span> THE METHODOLOGY</div>
+            <h2>STRATEGY<br>OVER <em>GUESSWORK.</em></h2>
+          </div>
+          <p>Fantasy basketball isn’t just about finding the best player. It’s about
+             finding the right player for the team you’re building.</p>
+        </div>
+        <div class="process-grid">
+          <article class="process-card">
+            <span class="process-number">01 / SET THE STAGE</span>
+            <div class="process-icon" aria-hidden="true">↗</div>
+            <h3>Set your league.</h3>
+            <p>Choose your team count, draft seat, rounds, and 8- or 9-category format.</p>
+          </article>
+          <article class="process-card">
+            <span class="process-number">02 / FIND YOUR LANE</span>
+            <div class="process-icon process-icon-circle" aria-hidden="true">◎</div>
+            <h3>Pick your path.</h3>
+            <p>Make your first-round selection and explore the punt builds that fit that player.</p>
+          </article>
+          <article class="process-card">
+            <span class="process-number">03 / STAY AHEAD</span>
+            <div class="process-icon" aria-hidden="true">⌁</div>
+            <h3>Follow the fit.</h3>
+            <p>See later-round options ranked to complement the build you’ve committed to.</p>
+          </article>
+        </div>
+        <div class="process-foot">
+          <span>BUILT FOR CATEGORY-LEAGUE DRAFTS</span>
+          <span>MOCK OR LIVE. ALWAYS YOUR CALL.</span>
+        </div>
+      </div>
+    </section>
 
-  <div class="links">
-    <p class="note">
-      Projections are precomputed and refreshed between seasons, not live
-      during a draft. Built with public data from
+    <section id="evidence" class="evidence-section">
+      <div class="section-wrap">
+        <div class="eyebrow eyebrow-dark"><span class="eyebrow-line"></span> HOW IT WAS CHECKED</div>
+        <div class="evidence-grid">
+          <a class="evidence-card"
+             href="https://github.com/jlee2927/NBA-Fantasy-Leegue/blob/main/docs/backtest.md">
+            <h3>Walk-forward backtest</h3>
+            <p>Each season is projected using only parameters fitted on earlier
+               seasons. 10% better than carrying last season forward, and the
+               held-out season agrees.</p>
+            <span>READ THE RESULTS →</span>
+          </a>
+          <a class="evidence-card"
+             href="https://github.com/jlee2927/NBA-Fantasy-Leegue/blob/main/docs/rookie-backtest.md">
+            <h3>Rookie translation</h3>
+            <p>College production converted using factors fitted on every player
+               since 2015 who did both. Nine of eleven categories beat guessing
+               the class average. Steals do not.</p>
+            <span>READ THE RESULTS →</span>
+          </a>
+          <a class="evidence-card"
+             href="https://github.com/jlee2927/NBA-Fantasy-Leegue/blob/main/docs/parity-check.md">
+            <h3>Source parity check</h3>
+            <p>Three independent data sources compared against each other before
+               any of them was chosen to build projections from.</p>
+            <span>READ THE RESULTS →</span>
+          </a>
+        </div>
+      </div>
+    </section>
+
+    <section id="watchlist" class="watch-section">
+      <div class="section-wrap">
+        <div class="watch-header">
+          <div>
+            <div class="eyebrow"><span class="eyebrow-line"></span> AHEAD OF THE CURVE</div>
+            <h2>THE NEXT<br><span>WAVE.</span></h2>
+          </div>
+          <div class="watch-header-aside">
+            <span class="watch-asterisk" aria-hidden="true">✳</span>
+            <p>Today’s breakout. Tomorrow’s headline. Keep these names on your radar
+               as you think beyond the obvious picks.</p>
+          </div>
+        </div>
+        <div class="watch-grid">
+          <article class="watch-card watch-orange">
+            <div class="watch-card-top"><span>THE ASCENT</span><span>01 / 04</span></div>
+            <div class="watch-card-graphic" aria-hidden="true"><span>01</span><div class="watch-ring"></div></div>
+            <div class="watch-card-bottom">
+              <h3>Jalen Johnson</h3>
+              <p>A rising all-around name to keep in the conversation.</p>
+            </div>
+          </article>
+          <article class="watch-card watch-olive">
+            <div class="watch-card-top"><span>THE PROSPECT</span><span>02 / 04</span></div>
+            <div class="watch-card-graphic" aria-hidden="true"><span>02</span><div class="watch-ring"></div></div>
+            <div class="watch-card-bottom">
+              <h3>AJ Dybantsa</h3>
+              <p>A high-upside talent with a future worth tracking.</p>
+            </div>
+          </article>
+          <article class="watch-card watch-clay">
+            <div class="watch-card-top"><span>THE PROSPECT</span><span>03 / 04</span></div>
+            <div class="watch-card-graphic" aria-hidden="true"><span>03</span><div class="watch-ring"></div></div>
+            <div class="watch-card-bottom">
+              <h3>Cameron Boozer</h3>
+              <p>A polished young talent on the horizon.</p>
+            </div>
+          </article>
+          <article class="watch-card watch-slate">
+            <div class="watch-card-top"><span>THE PROSPECT</span><span>04 / 04</span></div>
+            <div class="watch-card-graphic" aria-hidden="true"><span>04</span><div class="watch-ring"></div></div>
+            <div class="watch-card-bottom">
+              <h3>Cayden Boozer</h3>
+              <p>A playmaker to follow as his next chapter unfolds.</p>
+            </div>
+          </article>
+        </div>
+        <p class="watch-disclaimer">THE WATCHLIST IS EDITORIAL, NOT A LIVE PLAYER RANKING.</p>
+      </div>
+    </section>
+
+    <section class="closing-section">
+      <div class="closing-image" aria-hidden="true"></div>
+      <div class="section-wrap closing-content">
+        <div class="eyebrow"><span class="eyebrow-line"></span> THE CLOCK IS TICKING</div>
+        <h2>THE BEST PICK<br>IS <span>YOUR NEXT ONE.</span></h2>
+        <div class="closing-bottom">
+          <p>Your league won’t wait. Walk into the draft with a plan worth playing for.</p>
+          <a class="button button-light" href="https://nba-fantasy-league.onrender.com">
+            OPEN DRAFT ASSISTANT
+            <svg aria-hidden="true" viewBox="0 0 20 20" fill="none">
+              <path d="M4 16 16 4M6 4h10v10" stroke="currentColor" stroke-width="1.6"
+                    stroke-linecap="round" stroke-linejoin="round"/>
+            </svg>
+          </a>
+        </div>
+      </div>
+    </section>
+  </main>
+
+  <footer class="site-footer section-wrap">
+    <a href="#top" class="brand">
+      <span class="brand-mark"><span></span></span>
+      <span>NBA FANTASY <span class="brand-accent">LEEGUE.</span></span>
+    </a>
+    <span class="footer-note">
+      Projections are precomputed and refreshed between seasons, not live during a
+      draft. Built with public data from
       <a href="https://github.com/sportsdataverse">sportsdataverse</a>.
       Not affiliated with the NBA.
-    </p>
-    <p class="note">
-      <a href="https://github.com/jlee2927/NBA-Fantasy-Leegue">Source on GitHub</a>
-    </p>
-  </div>
+      <a href="https://github.com/jlee2927/NBA-Fantasy-Leegue">Source on GitHub</a>.
+    </span>
+    <a href="#top">BACK TO TOP ↑</a>
+  </footer>
 
 </div>
+<script src="assets/ball.js"></script>
 </body>
 </html>

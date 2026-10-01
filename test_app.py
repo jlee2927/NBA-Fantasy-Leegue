@@ -286,6 +286,39 @@ def test_confirming_a_build_reranks_the_board(client):
     assert before.split("Best available")[1] != after.split("Best available")[1]
 
 
+def _board_header(client, room):
+    return client.get(room).data.decode().split("Best available")[1].split("</thead>")[0]
+
+
+def test_the_board_shows_standardised_value_by_default(client):
+    """The ranking is built from z-scores, so that is what it opens on."""
+    header = _board_header(client, _start(client))
+    assert ">pts<" in header and ">p/g<" not in header
+
+
+def test_the_board_can_switch_to_projected_statistics(client):
+    room = _start(client)
+    client.post(f"{room}/settings", data={"view": "stats"})
+    header = _board_header(client, room)
+    assert ">p/g<" in header and ">pts<" not in header
+    # Games and minutes only mean something once the line is a projection.
+    assert ">g<" in header and ">m/g<" in header
+
+
+def test_the_chosen_view_survives_a_pick(client):
+    """A display preference that reset every round would be unusable."""
+    room = _start(client)
+    client.post(f"{room}/settings", data={"view": "stats"})
+    client.post(f"{room}/pick", data={"player": _first_player(client, room)})
+    assert ">p/g<" in _board_header(client, room)
+
+
+def test_an_unknown_view_is_ignored(client):
+    room = _start(client)
+    client.post(f"{room}/settings", data={"view": "nonsense"})
+    assert ">pts<" in _board_header(client, room)
+
+
 def test_a_confirmed_build_drops_those_columns(client):
     room = _start(client)
     client.post(f"{room}/pick", data={"player": _first_player(client, room)})

@@ -15,7 +15,7 @@ from pathlib import Path
 
 import pandas as pd
 
-from .categories import NEGATIVE, NINE_CAT, RATIO
+from .categories import NEGATIVE, NINE_CAT, RATIO, STAT_VIEW
 
 DEFAULT_POOL = 156   # 12 teams x 13 roster slots
 MAX_PASSES = 50
@@ -168,6 +168,31 @@ def suggest_builds(df: pd.DataFrame, player: str, n_punts: int, cats=NINE_CAT,
 
 # Basketball Monster's column names for the per-category values, so the board
 # reads the same way to anyone who already uses their sheet.
+def stat_table(df: pd.DataFrame, cats) -> pd.DataFrame:
+    """The same players as the value board, shown as projected statistics.
+
+    A z-score says how a player ranks; it does not say what he is expected to
+    do. Both are worth seeing, and a manager who knows the categories often
+    reads the raw line faster than the standardised one.
+
+    Returns formatted strings rather than numbers so the template does not
+    have to know that percentages want three decimals and counting stats want
+    one. A projection that is missing renders as a dash rather than "nan".
+    """
+    out = pd.DataFrame(index=df.index)
+    for c in cats:
+        column, _, places = STAT_VIEW[c]
+        values = df[column] if column in df.columns else pd.Series(index=df.index)
+        out[c] = [f"{v:.{places}f}" if pd.notna(v) else "\u2014" for v in values]
+    out["g"] = [f"{v:.0f}" if pd.notna(v) else "\u2014" for v in df["proj_g"]]
+    out["m/g"] = [f"{v:.1f}" if pd.notna(v) else "\u2014" for v in df["proj_mpg"]]
+    return out
+
+
+def stat_headings(cats) -> list[str]:
+    return [STAT_VIEW[c][1] for c in cats]
+
+
 VALUE_LABEL = {"pts": "pV", "tpm": "3V", "reb": "rV", "ast": "aV", "stl": "sV",
                "blk": "bV", "tov": "toV", "fg": "fg%V", "ft": "ft%V"}
 RATE_LABEL = {"pts": "p/g", "tpm": "3/g", "reb": "r/g", "ast": "a/g",

@@ -74,6 +74,12 @@
       <option value="auto" {% if draft_mode == 'auto' %}selected{% endif %}>Draft for me</option>
     </select>
   </label>
+  <label>Board shows
+    <select name="view" onchange="this.form.submit()">
+      <option value="value" {% if view == 'value' %}selected{% endif %}>Standardised value</option>
+      <option value="stats" {% if view == 'stats' %}selected{% endif %}>Projected stats</option>
+    </select>
+  </label>
   <span class="muted" style="font-size:12px">
     Nothing is applied to your board until you pick it.
   </span>
@@ -166,7 +172,12 @@
       <thead><tr>
         <th></th><th>Player</th><th>Team</th><th>Pos</th>
         <th class="n">Value</th>
-        {% for c in cats %}<th class="n">{{ c }}</th>{% endfor %}
+        {% if view == 'stats' %}
+          {% for h in stat_headings %}<th class="n">{{ h }}</th>{% endfor %}
+          <th class="n">g</th><th class="n">m/g</th>
+        {% else %}
+          {% for c in cats %}<th class="n">{{ c }}</th>{% endfor %}
+        {% endif %}
         <th></th>
       </tr></thead>
       <tbody>
@@ -190,7 +201,13 @@
           <td class="muted">{{ p.team }}</td>
           <td class="muted">{{ p.pos }}</td>
           <td class="n"><strong>{{ '%.2f'|format(row.total) }}</strong></td>
-          {% for c in cats %}<td class="n muted">{{ '%+.1f'|format(row[c]) }}</td>{% endfor %}
+          {% if view == 'stats' %}
+            {% set s = stats.loc[name] %}
+            {% for c in cats %}<td class="n muted">{{ s[c] }}</td>{% endfor %}
+            <td class="n muted">{{ s['g'] }}</td><td class="n muted">{{ s['m/g'] }}</td>
+          {% else %}
+            {% for c in cats %}<td class="n muted">{{ '%+.1f'|format(row[c]) }}</td>{% endfor %}
+          {% endif %}
           <td>
             <form method="post" action="{{ url_for('pick', room_id=room_id) }}">
               <input type="hidden" name="player" value="{{ name }}">

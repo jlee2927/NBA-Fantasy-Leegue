@@ -27,7 +27,7 @@ from . import managers as Mg
 from .categories import FORMATS
 from .draft import MAX_EMPHASIS, NEUTRAL_EMPHASIS, DraftState, League
 from .fetch_injuries import label as label_injuries
-from .valuation import load_projections
+from .valuation import load_projections, stat_headings, stat_table
 
 # The landing page is the same files GitHub Pages serves, not a copy of them,
 # so the two can never drift apart.
@@ -79,6 +79,7 @@ def save(room_id: str, room: dict, response):
         "t": state.league.teams, "r": state.league.rounds, "f": room["format"],
         "s": room["seat"], "m": room["mode"], "sd": room["seed"],
         "b": room["build_mode"], "d": room["draft_mode"],
+        "vw": room["view"],
         "p": [where[pick.player] for pick in state.picks],
         "pu": list(state.punts.get(room["seat"], ())),
         "e": state.emphasis.get(room["seat"], {}),
@@ -125,7 +126,8 @@ def restore(room_id: str) -> dict | None:
             "rng": random.Random(saved["sd"]),
             "strategies": Mg.assign(league.teams, seat, saved["sd"])
                           if saved["m"] == "mock" else {},
-            "build_mode": saved["b"], "draft_mode": saved["d"]}
+            "build_mode": saved["b"], "draft_mode": saved["d"],
+            "view": saved.get("vw", "value")}
 
 
 def _load():
@@ -205,6 +207,10 @@ def create():
         # strategy they never chose, so it waits to be asked.
         "build_mode": form.get("build_mode", "manual"),
         "draft_mode": form.get("draft_mode", "manual"),
+        # Z-scores are the default because they are what the ranking is built
+        # from; the raw projections are a click away for anyone who reads the
+        # categories faster that way.
+        "view": "value",
     }
     _rooms[room_id] = room
     _advance(room)
@@ -281,9 +287,14 @@ def room(room_id: str):
         builds = state.suggest_punts(mine[0], n_punts,
                                      limit=BUILDS_OFFERED[room["build_mode"]])
 
+    cats = [c for c in board.columns if c != "total"]
+    view = room.get("view", "value")
+    stats = stat_table(detail, cats) if view == "stats" else None
+
     return render_template(
         "draft.html", room_id=room_id, state=state, seat=seat, mode=room["mode"],
-        board=board, detail=detail, cats=[c for c in board.columns if c != "total"],
+        board=board, detail=detail, cats=cats,
+        view=view, stats=stats, stat_headings=stat_headings(cats),
         mine=mine, totals=totals, builds=builds, auto=auto, search=search,
         matches=len(ranked), pool=len(state.available),
         build_mode=room["build_mode"], draft_mode=room["draft_mode"],
@@ -335,6 +346,8 @@ def settings(room_id: str):
         value = request.form.get(key)
         if value in {"auto", "manual"}:
             room[key] = value
+    if request.form.get("view") in {"value", "stats"}:
+        room["view"] = request.form["view"]
     _advance(room)
     return save(room_id, room, redirect(url_for("room", room_id=room_id)))
 

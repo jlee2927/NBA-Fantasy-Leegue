@@ -1,9 +1,19 @@
 # Render deployment for the draft assistant.
 #
+# NOT CURRENTLY APPLIED. The live service was created through New > Web
+# Service, which never reads this file, rather than New > Blueprint, which
+# does. The running service is on the free plan while this file says starter,
+# and its start command was entered by hand in the dashboard.
+#
+# So: changing anything here changes nothing. Mirror it in the Render
+# dashboard, or re-create the service as a Blueprint to make this file
+# authoritative.
+#
 # One worker, deliberately. Draft rooms live in a dictionary in the server's
 # memory, so a second worker would serve some requests from a process that has
 # never heard of your draft, and the room would appear to vanish mid-pick.
-# Persisting rooms properly is WS5's job; until then, one process.
+# puntfit/store.py is the shared storage that lifts this restriction, but
+# nothing uses it yet; until rooms actually live there, one process.
 #
 # Threads rather than workers gives concurrency without that problem: threads
 # share memory, so every request sees the same rooms.

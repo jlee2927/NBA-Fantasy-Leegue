@@ -24,9 +24,16 @@ Configuration is the DATABASE_URL environment variable. It is a credential,
 so it is never committed: Render holds the real one, and a local .env (which
 is gitignored) holds one for development.
 
+The schema creates itself on first use, so there is no migration step to
+remember and no command that has to be run from a particular machine. That
+matters more than it sounds: many corporate networks block outbound port
+5432, so the laptop this is developed on may not be able to reach the
+database at all even though the deployed app can. Nothing should depend on
+a human having run a command from the right network.
+
 Usage:
     python -m puntfit.store --check     # can we reach the database?
-    python -m puntfit.store --init      # create the tables
+    python -m puntfit.store --init      # create the tables (also automatic)
 """
 from __future__ import annotations
 
@@ -139,9 +146,34 @@ def connection():
         yield conn
 
 
+_schema_ready = False
+
+
 def init_schema() -> None:
     with connection() as conn:
         conn.execute(SCHEMA)
+
+
+def ensure_schema() -> None:
+    """Create the tables if they are not there, once per process.
+
+    Every statement in SCHEMA is IF NOT EXISTS, so this is safe to call on a
+    database that is already set up and safe to race against another worker
+    doing the same thing.
+    """
+    global _schema_ready
+    if _schema_ready:
+        return
+    init_schema()
+    _schema_ready = True
+
+
+class Unreachable(RuntimeError):
+    """The database could not be reached, as opposed to refusing us.
+
+    Worth separating, because the two have completely different fixes and a
+    timeout is routinely misread as a wrong password.
+    """
 
 
 def check() -> dict:

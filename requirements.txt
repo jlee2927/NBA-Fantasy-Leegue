@@ -11,4 +11,7 @@ xlrd>=2.0
 flask>=3.0
 # Serves the app in production; Flask's own server is for development only.
 gunicorn>=22.0
+# Shared draft rooms. psycopg 3 with its own pool; the binary wheel avoids
+# needing Postgres client libraries on the build host.
+psycopg[binary,pool]>=3.1
 pytest>=8.0

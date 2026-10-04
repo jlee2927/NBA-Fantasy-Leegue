@@ -135,8 +135,12 @@ def pool():
         from psycopg_pool import ConnectionPool
         # Small: a draft room is a handful of queries per page, and Neon's
         # free compute does not want a large pool held open against it.
+        # Short timeouts on purpose. An unreachable database should fail a
+        # request in seconds, not hold a worker for half a minute - during a
+        # draft that is the difference between an error and a hang.
         _pool = ConnectionPool(database_url(), min_size=0, max_size=4,
-                               max_idle=60, open=True)
+                               max_idle=60, open=True, timeout=6,
+                               kwargs={"connect_timeout": 5})
     return _pool
 
 

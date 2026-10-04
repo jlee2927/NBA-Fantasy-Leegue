@@ -45,6 +45,26 @@ def test_the_landing_page_serves_its_own_stylesheet(client):
     assert client.get("/assets/ball.js").status_code == 200
 
 
+def test_health_says_so_when_no_database_is_configured(client, monkeypatch):
+    """Solo drafts do not need one, so this is a healthy state, not an error.
+
+    DATABASE_URL is cleared rather than left to the environment: a developer
+    with a real one set would otherwise make this test dial out, and a test
+    suite that depends on the network is a test suite that hangs.
+    """
+    monkeypatch.setenv("DATABASE_URL", "")
+    r = client.get("/health")
+    assert r.status_code == 200
+    assert r.json["database"] == "not configured"
+
+
+def test_health_never_leaks_the_credential(client, monkeypatch):
+    """It is a public endpoint and the connection string holds a password."""
+    monkeypatch.setenv("DATABASE_URL", "postgresql://u:secret@example/db")
+    body = client.get("/health").data.decode()
+    assert "secret" not in body and "postgresql://" not in body
+
+
 def test_setup_page_renders(client):
     r = client.get("/draft")
     assert r.status_code == 200

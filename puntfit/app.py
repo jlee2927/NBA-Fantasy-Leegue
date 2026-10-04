@@ -27,6 +27,7 @@ from . import managers as Mg
 from .categories import FORMATS
 from .draft import MAX_EMPHASIS, NEUTRAL_EMPHASIS, DraftState, League
 from .positions import apply_overrides, derive, roster_view
+from . import store
 from .fetch_injuries import label as label_injuries
 from .valuation import load_projections, stat_headings, stat_table
 
@@ -167,6 +168,30 @@ def home():
 @app.get("/assets/<path:name>")
 def landing_asset(name: str):
     return send_from_directory(DOCS / "assets", name)
+
+
+@app.get("/health")
+def health():
+    """Whether the app can reach its database.
+
+    Exists so the Render environment variable can be verified the moment it is
+    set, rather than waiting until shared rooms are built to find out it was
+    wrong. Reports the host but never the credential.
+    """
+    if not store.configured():
+        return {"database": "not configured",
+                "detail": "DATABASE_URL is unset; solo drafts work, shared "
+                          "rooms are unavailable"}, 200
+    try:
+        store.ensure_schema()
+        info = store.check()
+        host = store.database_url().split("@")[-1].split("/")[0]
+        return {"database": "ok", "host": host,
+                "server": info["version"], "tables": info["tables"]}, 200
+    except Exception as e:
+        # The class name alone, because the message can carry the connection
+        # string and this endpoint is public.
+        return {"database": "unreachable", "error": type(e).__name__}, 503
 
 
 @app.get("/draft-board.html")

@@ -46,6 +46,12 @@ PLAYER_ID = re.compile(r"/id/(\d+)")
 SEVERITY = {"Out": 4, "Doubtful": 3, "Questionable": 2,
             "Game Time Decision": 2, "Day-To-Day": 1}
 
+# The badge sits beside a player's name in a table that is already wider than
+# a phone, and "Game Time Decision" is wider than most names. The full text
+# stays on the element's title, so nothing is lost by shortening it.
+SHORT = {"Out": "OUT", "Doubtful": "DTF", "Questionable": "Q",
+         "Game Time Decision": "GTD", "Day-To-Day": "DTD"}
+
 COLUMNS = ["athlete_id", "name", "team", "status", "severity", "body_part",
            "detail", "return_date", "reported", "comment", "source"]
 
@@ -109,6 +115,8 @@ def label(projections: pd.DataFrame, injuries: pd.DataFrame,
     out["injury_detail"] = ids.map(status.detail)
     out["injury_return"] = ids.map(status.return_date)
     out["injury_severity"] = ids.map(status.severity).fillna(0).astype(int)
+    out["injury_short"] = out.injury_status.map(
+        lambda v: SHORT.get(v, v) if isinstance(v, str) else v)
     return out
 
 

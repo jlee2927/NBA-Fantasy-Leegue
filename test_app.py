@@ -404,6 +404,15 @@ def test_a_player_with_no_history_renders_a_dash(client):
     assert "nan" not in body.lower().split("best available")[1]
 
 
+def test_injury_badges_are_abbreviated(client):
+    """The badge sits in a table already wider than a phone, and "Game Time
+    Decision" is wider than most player names."""
+    page = client.get(_start(client)).data.decode()
+    assert "Day-To-Day<" not in page
+    if "DTD" in page:                      # only if somebody is listed day-to-day
+        assert 'title="Day-To-Day' in page  # the full status survives on hover
+
+
 def test_a_confirmed_build_drops_those_columns(client):
     room = _start(client)
     client.post(f"{room}/pick", data={"player": _first_player(client, room)})

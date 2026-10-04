@@ -142,9 +142,10 @@ def _load():
             df = label_injuries(df, pd.read_csv(INJURIES))
         else:
             df["injury_status"] = None
+            df["injury_short"] = None
         # A missing status arrives as NaN, which is truthy in a template and
         # renders a "nan" badge beside every healthy player.
-        for col in ("injury_status", "injury_detail"):
+        for col in ("injury_status", "injury_detail", "injury_short"):
             df[col] = df[col].where(df[col].notna(), "")
         app.config["players"], app.config["params"] = df, params
         app.config["positions"] = apply_overrides(derive(df), df, POSITIONS)

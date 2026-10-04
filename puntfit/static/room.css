@@ -180,6 +180,16 @@ td.n { text-align: right; font-variant-numeric: tabular-nums; }
    means scrolling to the bottom of the list first. */
 @media (max-width: 900px) {
   .scroll { max-height: 70vh; }
+  /* The name column is pinned, so every pixel it takes is a pixel of
+     categories permanently off screen. Tighten it rather than widen the
+     scroll. Long names clip with an ellipsis as a backstop; the title
+     attribute carries the whole thing. */
+  .scroll th, .scroll td { padding: 5px 5px; }
+  .scroll tbody td:nth-child(2) { max-width: 152px; overflow: hidden;
+                                  text-overflow: ellipsis; }
+  .scroll tbody td:nth-child(2) .pill { padding: 0 5px; font-size: 9px; }
+  /* Rank and position earn their width least on a narrow screen. */
+  .scroll th:nth-child(1), .scroll td:nth-child(1) { padding-left: 2px; padding-right: 2px; }
 }
 tbody tr:hover { background: rgba(244,241,233,.045); }
 .mine-row, tr.mine-row:hover { background: rgba(232,120,64,.13); }

@@ -190,7 +190,7 @@
         {% set p = detail.loc[name] %}
         <tr>
           <td class="n muted">{{ loop.index }}</td>
-          <td>
+          <td title="{{ name }}">
             {{ name }}
             {% if p.projection_source == 'translated' %}
               <span class="pill rookie"
@@ -200,7 +200,8 @@
             {% endif %}
             {% if p.injury_status %}
               <span class="pill {% if p.injury_severity >= 4 %}out{% endif %}"
-                    title="{{ p.injury_detail }}">{{ p.injury_status }}</span>
+                    title="{{ p.injury_status }}{% if p.injury_detail %} &mdash; {{ p.injury_detail }}{% endif %}"
+                    >{{ p.injury_short or p.injury_status }}</span>
             {% endif %}
           </td>
           <td class="muted">{{ p.team }}</td>

@@ -38,9 +38,11 @@ def create(room_id: str, *, teams: int, rounds: int, fmt: str, seed: int,
             "INSERT INTO rooms (id, fingerprint, teams, rounds, format, mode,"
             " seed, host_token) VALUES (%s, %s, %s, %s, %s, 'shared', %s, %s)",
             (room_id, fingerprint, teams, rounds, fmt, seed, host_token))
-        conn.executemany(
-            "INSERT INTO seats (room_id, seat) VALUES (%s, %s)",
-            [(room_id, s) for s in range(teams)])
+        # executemany is a cursor method in psycopg 3, not a connection one.
+        with conn.cursor() as cur:
+            cur.executemany(
+                "INSERT INTO seats (room_id, seat) VALUES (%s, %s)",
+                [(room_id, s) for s in range(teams)])
 
 
 def load(room_id: str) -> dict | None:
@@ -113,10 +115,24 @@ def add_pick(room_id: str, number: int, seat: int, player: str) -> bool:
 
 
 def update_seat(room_id: str, seat: int, **fields) -> None:
+    """A seat's own settings: its build, its emphasis, how it reads the board.
+
+    These belong to the person in the seat, not to the room, which is why
+    they live on seats rather than rooms.
+    """
+    from psycopg.types.json import Jsonb
+
     allowed = {"punts", "emphasis", "view", "name"}
     fields = {k: v for k, v in fields.items() if k in allowed}
     if not fields:
         return
+    # emphasis is jsonb. psycopg 3 adapts a list to an array on its own but
+    # not a dict to json, so that one is wrapped.
+    if "emphasis" in fields:
+        fields["emphasis"] = Jsonb(fields["emphasis"] or {})
+    if "punts" in fields:
+        fields["punts"] = list(fields["punts"] or ())
+
     sets = ", ".join(f"{k} = %s" for k in fields)
     with store.connection() as conn:
         conn.execute(f"UPDATE seats SET {sets} WHERE room_id = %s AND seat = %s",

@@ -617,6 +617,8 @@ def settings(room_id: str):
             room[key] = value
     if request.form.get("view") in {"value", "stats", "both", "last"}:
         room["view"] = request.form["view"]
+    if room.get("shared") and room["seat"] is not None:
+        shared.update_seat(room_id, room["seat"], view=room["view"])
     _advance(room)
     return save(room_id, room, redirect(url_for("room", room_id=room_id)))
 
@@ -648,6 +650,9 @@ def emphasis(room_id: str):
             state.set_emphasis(room["seat"], category, float(raw))
         except ValueError:
             continue
+    if room.get("shared") and room["seat"] is not None:
+        shared.update_seat(room_id, room["seat"],
+                           emphasis=state.emphasis.get(room["seat"], {}))
     return save(room_id, room, redirect(url_for("room", room_id=room_id)))
 
 
@@ -664,7 +669,12 @@ def punt(room_id: str):
         state.set_punt(room["seat"], chosen)
     else:
         state.clear_punt(room["seat"])   # "no build" is a legitimate choice
+    if room.get("shared") and room["seat"] is not None:
+        shared.update_seat(room_id, room["seat"], punts=chosen)
+    before = len(state.picks)
     _advance(room)
+    if room.get("shared"):
+        _persist(room_id, room, before)
     return save(room_id, room, redirect(url_for("room", room_id=room_id)))
 
 

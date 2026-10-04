@@ -114,3 +114,66 @@ def test_a_full_room_says_so(client, db, monkeypatch):
     r = client.post("/draft/sharedroom/join", data={"name": "Late"})
     assert r.status_code == 302 and "full=1" in r.headers["Location"]
     assert "Every seat is taken" in client.get("/draft/sharedroom?full=1").data.decode()
+
+
+# ------------------------------------------- the database API, not the logic
+class StrictConn:
+    """A stand-in with exactly the methods psycopg 3's Connection has.
+
+    Written because shared.create called conn.executemany, which psycopg 2
+    allows and psycopg 3 does not - executemany is a cursor method. The tests
+    above all mock at the module level and sailed straight past it; this fails
+    the same way the real driver did.
+    """
+
+    def __init__(self):
+        self.statements = []
+
+    def execute(self, sql, params=None):
+        self.statements.append(sql.strip().split()[0].upper())
+        return self
+
+    def fetchone(self):
+        return None
+
+    def fetchall(self):
+        return []
+
+    def cursor(self):
+        return self
+
+    def __enter__(self):
+        return self
+
+    def __exit__(self, *exc):
+        return False
+
+    def executemany(self, sql, rows):
+        # Only reachable through cursor(); a connection-level call would have
+        # raised AttributeError before getting here.
+        self.statements.append("EXECUTEMANY")
+
+
+def test_create_uses_only_methods_a_psycopg3_connection_has(monkeypatch):
+    import contextlib
+
+    import puntfit.shared as S
+
+    conn = StrictConn()
+    # The real Connection has no executemany, so remove it from the object the
+    # module is handed while leaving it on the cursor.
+    class NoExecuteMany(StrictConn):
+        executemany = property(lambda self: (_ for _ in ()).throw(
+            AttributeError("'Connection' object has no attribute 'executemany'")))
+
+        def cursor(self):
+            return conn
+
+    @contextlib.contextmanager
+    def fake_connection():
+        yield NoExecuteMany()
+
+    monkeypatch.setattr(S.store, "connection", fake_connection)
+    S.create("room", teams=4, rounds=3, fmt="9cat", seed=1,
+             fingerprint="abc", host_token="t")
+    assert "EXECUTEMANY" in conn.statements

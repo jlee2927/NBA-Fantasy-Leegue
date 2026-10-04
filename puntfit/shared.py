@@ -46,9 +46,7 @@ def create(room_id: str, *, teams: int, rounds: int, fmt: str, seed: int,
 
 
 def load(room_id: str) -> dict | None:
-    """Everything needed to rebuild the room."""
-    import time
-    t0 = time.perf_counter()
+    """Everything needed to rebuild the room, in one round trip per table."""
     with store.connection() as conn:
         row = conn.execute(
             "SELECT teams, rounds, format, seed, fingerprint, host_token"
@@ -64,7 +62,6 @@ def load(room_id: str) -> dict | None:
 
     teams, rounds, fmt, seed, fingerprint, host_token = row
     return {
-        "_ms": round(1000 * (time.perf_counter() - t0), 1),
         "teams": teams, "rounds": rounds, "format": fmt, "seed": seed,
         "fingerprint": fingerprint, "host_token": host_token,
         "picks": [p[2] for p in picks],
@@ -140,6 +137,21 @@ def update_seat(room_id: str, seat: int, **fields) -> None:
     with store.connection() as conn:
         conn.execute(f"UPDATE seats SET {sets} WHERE room_id = %s AND seat = %s",
                      (*fields.values(), room_id, seat))
+
+
+def pulse(room_id: str) -> tuple[int, int, int] | None:
+    """Just enough to know whether anything has happened: teams, rounds and
+    how many picks are in.
+
+    One round trip and no draft reconstruction, because this is polled by
+    every browser in the room and the answer is almost always "nothing yet".
+    """
+    with store.connection() as conn:
+        row = conn.execute(
+            "SELECT r.teams, r.rounds,"
+            " (SELECT count(*) FROM picks p WHERE p.room_id = r.id)"
+            " FROM rooms r WHERE r.id = %s", (room_id,)).fetchone()
+    return tuple(row) if row else None
 
 
 def pick_count(room_id: str) -> int:

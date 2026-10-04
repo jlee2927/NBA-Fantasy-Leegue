@@ -392,4 +392,42 @@
     </div>
 
 </div>
+
+{% if room_shared %}
+<script>
+// Other people are drafting in the same room, so the page has to notice.
+// It asks a single-query endpoint whether the pick count has moved and
+// reloads only when it has - polling the room itself would rebuild a draft
+// and re-rank five hundred players to answer "no".
+(function () {
+  var seen = {{ state.picks|length }};
+  var mine = {{ 'true' if my_turn else 'false' }};
+  var done = {{ 'true' if state.complete else 'false' }};
+  // Nothing can change while you are on the clock: the draft is waiting for
+  // you. Asking anyway would be the busiest moment of the draft spent on
+  // requests that cannot have news.
+  if (mine || done) return;
+
+  var url = {{ url_for('pulse', room_id=room_id)|tojson }};
+  var timer = setInterval(tick, 2500);
+
+  async function tick() {
+    if (document.hidden) return;            // a background tab is not watching
+    try {
+      var r = await fetch(url, { cache: 'no-store' });
+      var d = await r.json();
+      if (d.picks !== null && d.picks !== seen) {
+        clearInterval(timer);
+        location.reload();
+      }
+    } catch (e) { /* a dropped poll is not worth interrupting a draft for */ }
+  }
+  // Catch up immediately on returning to the tab rather than waiting out the
+  // interval.
+  document.addEventListener('visibilitychange', function () {
+    if (!document.hidden) tick();
+  });
+})();
+</script>
+{% endif %}
 {% endblock %}

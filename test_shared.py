@@ -177,3 +177,40 @@ def test_create_uses_only_methods_a_psycopg3_connection_has(monkeypatch):
     S.create("room", teams=4, rounds=3, fmt="9cat", seed=1,
              fingerprint="abc", host_token="t")
     assert "EXECUTEMANY" in conn.statements
+
+
+def test_the_pulse_is_cheap_enough_to_poll(client, db, monkeypatch):
+    """It must not rebuild a draft to answer "nothing yet". Nothing in the
+    room-loading path should be touched at all."""
+    calls = []
+    monkeypatch.setattr(A.shared, "pulse", lambda rid: (4, 3, 2))
+    monkeypatch.setattr(A.shared, "load",
+                        lambda rid: calls.append(rid) or db.load(rid))
+    r = client.get("/draft/sharedroom/pulse")
+    assert r.status_code == 200
+    assert r.json["picks"] == 2
+    assert calls == []                      # the room was never built
+
+
+def test_the_pulse_names_who_is_on_the_clock(client, db, monkeypatch):
+    monkeypatch.setattr(A.shared, "pulse", lambda rid: (4, 3, 5))
+    # Pick 5 in a four-team snake is the second round coming back: seat 2.
+    assert client.get("/draft/sharedroom/pulse").json["clock"] == 2
+
+
+def test_the_pulse_survives_the_database_falling_over(client, db, monkeypatch):
+    """A failed poll must never break the page somebody is drafting on."""
+    def boom(_):
+        raise RuntimeError("connection reset")
+    monkeypatch.setattr(A.shared, "pulse", boom)
+    r = client.get("/draft/sharedroom/pulse")
+    assert r.status_code == 200 and r.json["picks"] is None
+
+
+def test_a_room_does_not_poll_while_you_are_on_the_clock(client, db):
+    """The draft is waiting for you, so nothing can change. Polling then is
+    the busiest moment of the draft spent on requests with no news."""
+    db.seats[0]["token"] = "mine"
+    client.set_cookie("puntfit_seat_sharedroom", "mine")
+    page = client.get("/draft/sharedroom").data.decode()
+    assert "var mine = true;" in page

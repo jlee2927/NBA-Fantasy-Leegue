@@ -198,7 +198,6 @@ def _shared(room_id: str) -> dict | None:
             return None                  # projections moved under the room
 
     seat = shared.seat_for(saved, request.cookies.get(SEAT + room_id))
-    app.config["last_db_ms"] = saved.pop("_ms", None)
     settings = saved["seats"].get(seat, {}) if seat is not None else {}
     if seat is not None and settings.get("punts"):
         state.set_punt(seat, tuple(settings["punts"]))
@@ -280,19 +279,10 @@ def health():
                 "detail": "DATABASE_URL is unset; solo drafts work, shared "
                           "rooms are unavailable"}, 200
     try:
-        import time as _t
         store.ensure_schema()
-        marks = {}
-        t0 = _t.perf_counter()
-        with store.connection() as conn:
-            marks["acquire_ms"] = round(1000 * (_t.perf_counter() - t0), 1)
-            t1 = _t.perf_counter()
-            conn.execute("SELECT 1").fetchone()
-            marks["query_ms"] = round(1000 * (_t.perf_counter() - t1), 1)
-        marks["total_ms"] = round(1000 * (_t.perf_counter() - t0), 1)
         info = store.check()
         host = store.database_url().split("@")[-1].split("/")[0]
-        return {"database": "ok", "host": host, "timing": marks,
+        return {"database": "ok", "host": host,
                 "server": info["version"], "tables": info["tables"]}, 200
     except Exception as e:
         # The class name alone, because the message can carry the connection
@@ -421,33 +411,38 @@ def join(room_id: str):
     return response
 
 
-@app.after_request
-def _timing_header(response):
-    ms = request.environ.get("db_ms")
-    if ms is not None:
-        response.headers["X-Db-Ms"] = str(ms)
-    marks = request.environ.get("marks")
-    if marks:
-        response.headers["X-Marks"] = ";".join(
-            f"{k}={v}" for k, v in marks.items() if v is not None)
-    return response
+@app.get("/draft/<room_id>/pulse")
+def pulse(room_id: str):
+    """Has anything happened in this room?
+
+    Deliberately not a room: no projections, no DraftState, no z-scores. One
+    query and some arithmetic, because every browser in the draft asks this
+    every few seconds and the answer is usually no.
+    """
+    if not store.configured():
+        return {"picks": None}, 200
+    try:
+        got = shared.pulse(room_id)
+    except Exception:
+        return {"picks": None}, 200      # never let a poll break the page
+    if got is None:
+        return {"picks": None}, 404
+
+    teams, rounds, picks = got
+    league = League(teams=teams, rounds=rounds, categories=())
+    complete = picks >= teams * rounds
+    return {"picks": picks, "complete": complete,
+            "clock": None if complete else league.slot(picks)}, 200
 
 
 @app.get("/draft/<room_id>")
 def room(room_id: str):
-    import time as _t
-    _m = {}
-    _a = _t.perf_counter()
     room = _room(room_id)
-    _m["room"] = round(1000 * (_t.perf_counter() - _a), 1)
     if room is None:
         return render_template("gone.html", room_id=room_id), 404
 
     # Whoever opens the invite link without a seat is being invited, not
     # locked out.
-    if room.get("shared"):
-        # Temporary: how long the database half of this request took.
-        request.environ["db_ms"] = app.config.get("last_db_ms")
     if room.get("shared") and room["seat"] is None:
         return render_template(
             "join.html", room_id=room_id, room=room,
@@ -459,9 +454,7 @@ def room(room_id: str):
     players, _ = _load()
     seat = room["seat"]
 
-    _a = _t.perf_counter()
     ranked = state.recommend(team=seat, limit=len(state.projections))
-    _m["recommend"] = round(1000 * (_t.perf_counter() - _a), 1)
     search = request.args.get("q", "").strip()
     if search:
         ranked = ranked[ranked.index.str.contains(search, case=False, regex=False)]
@@ -484,9 +477,7 @@ def room(room_id: str):
         builds = state.suggest_punts(mine[0], n_punts,
                                      limit=BUILDS_OFFERED[room["build_mode"]])
 
-    _a = _t.perf_counter()
     slots = roster_view(mine, app.config["positions"], state.league.rounds)
-    _m["roster"] = round(1000 * (_t.perf_counter() - _a), 1)
 
     # Our ranking against the room's. A positive edge means the market
     # takes him later than we rate him, which is the only place a draft is
@@ -513,8 +504,6 @@ def room(room_id: str):
         view = "stats"                 # no history available; show the forecast
         stats = stat_table(detail, cats)
 
-    request.environ["marks"] = _m
-    _m["pre_render"] = round(1000 * (_t.perf_counter() - _t0_req), 1) if (_t0_req := None) else None
     return render_template(
         "draft.html", room_id=room_id, state=state, seat=seat, mode=room["mode"],
         board=board, detail=detail, cats=cats,

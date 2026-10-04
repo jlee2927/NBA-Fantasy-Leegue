@@ -67,6 +67,26 @@ class Pick:
     player: str
 
 
+# Z-score tables, shared by every DraftState built on the same projections.
+#
+# Not held on the DataFrame itself: pandas propagates .attrs through
+# operations and compares them for equality, which raises as soon as the
+# values are DataFrames. Keyed on identity instead, with the frame kept alive
+# so the id cannot be recycled onto a different one.
+_VALUES: dict[int, tuple] = {}
+_MAX_PROJECTION_SETS = 4
+
+
+def _value_cache(projections) -> dict:
+    token = id(projections)
+    if token not in _VALUES:
+        if len(_VALUES) >= _MAX_PROJECTION_SETS:
+            _VALUES.pop(next(iter(_VALUES)))
+        _VALUES[token] = (projections, {})
+    return _VALUES[token][1]
+
+
+
 @dataclass
 class DraftState:
     projections: pd.DataFrame
@@ -103,17 +123,27 @@ class DraftState:
 
     # --------------------------------------------------------------- values
     def values(self, punt: tuple[str, ...] = ()) -> pd.DataFrame:
-        """Z-scores under a punt build, cached because every pick reuses them."""
-        key = tuple(sorted(punt))
-        if key not in self._values:
-            if key:
-                z, _ = punt_value(self.projections, key, self.league.categories,
-                                  self.pool_size)
+        """Z-scores under a punt build.
+
+        Cached on the projection set rather than on this DraftState, because
+        the answer depends only on the projections, the punt, the categories
+        and the pool size - never on who has been drafted. A shared room is
+        rebuilt from its rows on every request, so a cache held per instance
+        was thrown away every time and the build chooser recomputed z-scores
+        for every combination of categories on every page load. That is 9
+        tables for a single punt and 126 for four.
+        """
+        key = (tuple(sorted(punt)), tuple(self.league.categories), self.pool_size)
+        cache = _value_cache(self.projections)
+        if key not in cache:
+            if key[0]:
+                z, _ = punt_value(self.projections, key[0],
+                                  self.league.categories, self.pool_size)
             else:
                 z, _ = value_players(self.projections, self.league.categories,
                                      self.pool_size)
-            self._values[key] = z
-        return self._values[key]
+            cache[key] = z
+        return cache[key]
 
     # ----------------------------------------------------------- the action
     def make_pick(self, player: str) -> Pick:

@@ -9,6 +9,7 @@
     {%- if state.punts.get(seat) %} &middot; punting
       <span class="pill">{{ state.punts[seat]|join(' + ') }}</span>
     {%- endif %}
+    &middot; <a href="{{ url_for('results', room_id=room_id) }}">standings</a>
     &middot; <a href="{{ url_for('room', room_id=room_id, restart=1) }}">start over</a>
   </p>
 </div>
@@ -36,9 +37,14 @@
 {% endif %}
 
 {% if state.complete %}
-  <div class="panel" style="margin-bottom:16px">
+  <div class="panel clock mine" style="margin-bottom:16px">
     <strong>Draft complete.</strong>
     <span class="muted">Every roster is full.</span>
+    <div style="margin-top:10px">
+      <a href="{{ url_for('results', room_id=room_id) }}">
+        <button class="go" type="button">See how it turned out</button>
+      </a>
+    </div>
   </div>
 {% else %}
   <div class="panel clock {% if my_turn %}mine{% endif %}" style="margin-bottom:16px">
@@ -236,7 +242,7 @@
 
   <div>
     <div class="panel" style="margin-bottom:16px">
-      <h2>Roster &mdash; {{ slots.filled }}/{{ slots.total }}</h2>
+      <h2>Roster &mdash; {{ slots.filled }}/{{ slots.total }}{% if slots.unplaced %} &middot; {{ slots.unplaced }} unplaced{% endif %}</h2>
       <table class="roster">
         {% for r in slots.rows %}
         <tr class="{% if r.slot == 'BE' %}bench{% endif %}">

@@ -100,3 +100,23 @@ def test_disagreements_decide_nothing(projections):
     ranks = pd.Series(range(1, len(projections) + 1), index=projections.index)
     for r in disagreements(projections, pos, ranks):
         assert r["derived"] == "/".join(pos[r["player"]])
+
+
+def test_a_three_round_draft_still_has_room_for_a_centre():
+    """Truncating the named slots gave PG, SG, SF - a roster with nowhere to
+    put a big. Short drafts use the flexible slots instead."""
+    assert slots_for(3) == ["G", "F", "C"]
+    pos = pd.Series({"a": ("PG",), "b": ("PF",), "c": ("C",)})
+    view = roster_view(["a", "b", "c"], pos, 3)
+    assert view["unplaced"] == 0
+    assert view["filled"] == 3
+
+
+def test_filled_counts_placements_not_bodies():
+    """A lopsided roster used to report every slot full while slots sat
+    empty, because it counted the roster rather than the matching."""
+    pos = pd.Series({"a": ("C",), "b": ("C",), "c": ("C",)})
+    view = roster_view(["a", "b", "c"], pos, 3)   # G, F, C - one centre slot
+    assert view["roster"] == 3
+    assert view["filled"] == 1
+    assert view["unplaced"] == 2

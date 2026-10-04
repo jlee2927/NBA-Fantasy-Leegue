@@ -46,6 +46,12 @@ FILLS = {
 STARTERS = ("PG", "SG", "SF", "PF", "C", "G", "F", "UTIL", "UTIL", "UTIL")
 BENCH = "BE"
 
+# Below five rounds the named slots are the wrong shape: taking the first
+# three of STARTERS gives PG, SG, SF and no room for a centre at all, so two
+# of a three-man roster would have nowhere to stand. Short drafts get the
+# flexible slots instead, which still cover the floor.
+SHORT = ("G", "F", "C", "UTIL")
+
 # Players between these percentiles of their group get both positions. The
 # band is wide because the boundary is genuinely blurred - a combo guard is a
 # real thing, not a measurement failure.
@@ -60,6 +66,8 @@ def slots_for(rounds: int) -> list[str]:
     """
     if rounds >= len(STARTERS):
         return list(STARTERS) + [BENCH] * (rounds - len(STARTERS))
+    if rounds < 5:
+        return list(SHORT[:rounds])
     return list(STARTERS[:rounds])
 
 
@@ -158,10 +166,12 @@ def roster_view(roster: list[str], positions: pd.Series, rounds: int) -> dict:
             counts[p] += 1
 
     starters = [r for r in rows if r["slot"] != BENCH]
+    placed = sum(1 for f in filled if f is not None)
     return {
         "rows": rows,
         "counts": counts,
-        "filled": len(roster),
+        "filled": placed,
+        "roster": len(roster),
         "total": len(slots),
         "starters_open": sum(1 for r in starters if r["player"] is None),
         "unplaced": len(roster) - sum(1 for f in filled if f is not None),

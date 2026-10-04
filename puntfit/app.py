@@ -376,6 +376,49 @@ def room(room_id: str):
     )
 
 
+@app.get("/draft/<room_id>/results")
+def results(room_id: str):
+    """How the draft turned out.
+
+    A mock that fills every roster and stops has not told the manager
+    anything. The question a category league is played for is how many
+    categories a roster would take, so that is the headline, and the punt is
+    graded on whether it actually happened rather than whether it was chosen.
+    """
+    room = _room(room_id)
+    if room is None:
+        return render_template("gone.html", room_id=room_id), 404
+    state: DraftState = room["state"]
+    seat = room["seat"]
+    players, _ = _load()
+
+    table = state.standings()
+    wins = state.category_wins(seat, table)
+    # Rank 1 is the best in a category. A punted category is executed when the
+    # rank is high, which is the one place on this page where last is good.
+    ranks = table.rank(ascending=False, method="min").astype(int)
+    punted = tuple(state.punts.get(seat, ()))
+
+    rows = [{"cat": c, "total": float(table.loc[seat, c]),
+             "rank": int(ranks.loc[seat, c]), "win": float(wins[c]),
+             "punted": c in punted}
+            for c in table.columns]
+    contested = [r for r in rows if not r["punted"]]
+
+    mine = state.roster(seat)
+    return render_template(
+        "results.html", room_id=room_id, state=state, seat=seat,
+        rows=rows, punted=punted,
+        expected=float(wins.sum()), categories=len(rows),
+        contested_won=sum(r["win"] for r in contested),
+        contested=len(contested),
+        standings=table, ranks=ranks, mine=mine,
+        slots=roster_view(mine, app.config["positions"], state.league.rounds),
+        detail=players.loc[players.index.intersection(mine)],
+        placing=int(ranks.loc[seat].mean().round()),
+    )
+
+
 @app.post("/draft/<room_id>/pick")
 def pick(room_id: str):
     room = _room(room_id)

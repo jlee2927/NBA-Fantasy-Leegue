@@ -1,0 +1,138 @@
+{% extends "base.html" %}
+{% block title %}NBA Fantasy Leegue - how the draft turned out{% endblock %}
+{% block body %}
+
+<div style="display:flex; justify-content:space-between; align-items:baseline; flex-wrap:wrap; gap:8px">
+  <h1>How the draft turned out</h1>
+  <p class="sub" style="margin:0">
+    team {{ seat + 1 }} of {{ state.league.teams }} &middot;
+    {{ state.picks|length }} picks
+    {%- if not state.complete %} &middot; <strong>still in progress</strong>{% endif %}
+    &middot; <a href="{{ url_for('room', room_id=room_id) }}">back to the board</a>
+  </p>
+</div>
+
+<div class="panel headline" style="margin-bottom:16px">
+  <div>
+    <span class="big">{{ '%.1f'|format(expected) }}</span>
+    <span class="of">of {{ categories }}</span>
+  </div>
+  <p class="muted" style="margin:0; font-size:13px; max-width:520px">
+    Categories this roster would take against an average opponent in the
+    league. Not a total value &mdash; no scoring system awards one. Each
+    category counts what share of the other
+    {{ state.league.teams - 1 }} teams you beat in it.
+  </p>
+</div>
+
+<div class="grid">
+  <div class="panel">
+    <h2>Category by category</h2>
+    <div class="scroll">
+    <table>
+      <thead><tr>
+        <th>Cat</th><th class="n">Your total</th><th class="n">Rank</th>
+        <th class="n">Beats</th><th></th>
+      </tr></thead>
+      <tbody>
+      {% for r in rows %}
+        <tr class="{% if r.punted %}punted{% endif %}">
+          <td><strong>{{ r.cat }}</strong></td>
+          <td class="n {{ 'good' if r.total >= 0 else 'bad' }}">{{ '%+.1f'|format(r.total) }}</td>
+          <td class="n muted">{{ r.rank }} / {{ state.league.teams }}</td>
+          <td class="n muted">{{ '%.0f'|format(r.win * 100) }}%</td>
+          <td>
+            {% if r.punted %}<span class="pill">punted</span>
+            {% elif r.win >= 0.75 %}<span class="pill">strong</span>
+            {% elif r.win <= 0.25 %}<span class="pill out">weak</span>{% endif %}
+          </td>
+        </tr>
+      {% endfor %}
+      </tbody>
+    </table>
+    </div>
+  </div>
+
+  <div>
+    <div class="panel" style="margin-bottom:16px">
+      <h2>The build</h2>
+      {% if punted %}
+        <p style="margin:0 0 10px; font-size:13px">
+          You punted <strong>{{ punted|join(' + ') }}</strong> and contested the
+          other {{ contested }}.
+        </p>
+        <p class="muted" style="font-size:12px; margin:0 0 10px">
+          A punt works when the category is genuinely given up. Finishing mid
+          table in something you meant to abandon means you paid for it twice.
+        </p>
+        <table>
+          {% for r in rows if r.punted %}
+          <tr>
+            <td>{{ r.cat }}</td>
+            <td class="n muted">{{ r.rank }} / {{ state.league.teams }}</td>
+            <td class="n">
+              {% if r.rank > state.league.teams // 2 %}
+                <span class="pill">given up</span>
+              {% else %}
+                <span class="pill out">still paying</span>
+              {% endif %}
+            </td>
+          </tr>
+          {% endfor %}
+        </table>
+        <p class="muted" style="font-size:12px; margin:10px 0 0">
+          {{ '%.1f'|format(contested_won) }} of the {{ contested }} categories you
+          actually contested.
+        </p>
+      {% else %}
+        <p class="muted" style="font-size:13px; margin:0">
+          No build was set, so the board ranked on overall value throughout.
+          That is a strategy too &mdash; it just means nothing was deliberately
+          given up to pay for something else.
+        </p>
+      {% endif %}
+    </div>
+
+    <div class="panel" style="margin-bottom:16px">
+      <h2>Roster &mdash; {{ slots.filled }}/{{ slots.total }}{% if slots.unplaced %} &middot; {{ slots.unplaced }} unplaced{% endif %}</h2>
+      <table class="roster">
+        {% for r in slots.rows %}
+        <tr class="{% if r.slot == 'BE' %}bench{% endif %}">
+          <td class="slot-pos">{{ r.slot }}</td>
+          <td>{% if r.player %}{{ r.player }}{% else %}<span class="empty">Empty</span>{% endif %}</td>
+          <td class="elig">{{ r.positions }}</td>
+        </tr>
+        {% endfor %}
+      </table>
+    </div>
+  </div>
+</div>
+
+<div class="panel" style="margin-top:16px">
+  <h2>Every team</h2>
+  <div class="scroll">
+  <table>
+    <thead><tr>
+      <th>Team</th>
+      {% for c in standings.columns %}<th class="n">{{ c }}</th>{% endfor %}
+      <th class="n">Cats</th>
+    </tr></thead>
+    <tbody>
+    {% for t in range(state.league.teams) %}
+      <tr class="{% if t == seat %}mine-row{% endif %}">
+        <td>T{{ t + 1 }}{% if t == seat %} <strong>you</strong>{% endif %}</td>
+        {% for c in standings.columns %}
+          <td class="n muted">{{ ranks.loc[t, c] }}</td>
+        {% endfor %}
+        <td class="n"><strong>{{ '%.1f'|format(state.category_wins(t, standings).sum()) }}</strong></td>
+      </tr>
+    {% endfor %}
+    </tbody>
+  </table>
+  </div>
+  <p class="muted" style="font-size:11px; margin:8px 0 0">
+    Rank in each category, 1 is best. The last column is categories won against
+    an average opponent.
+  </p>
+</div>
+{% endblock %}

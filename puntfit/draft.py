@@ -127,6 +127,32 @@ class DraftState:
         self.picks.append(pick)
         return pick
 
+    # ------------------------------------------------------------ outcome
+    def standings(self) -> pd.DataFrame:
+        """Every team's projected total per category.
+
+        Measured on unpunted z-scores, always. A punt is a decision about
+        where to spend, not a change to how the league scores: the categories
+        somebody gave up still count against them on Sunday night.
+        """
+        z = self.values()
+        cats = list(self.league.categories)
+        rows = {t: z.loc[z.index.intersection(self.roster(t)), cats].sum()
+                for t in range(self.league.teams)}
+        return pd.DataFrame(rows).T
+
+    def category_wins(self, team: int, table: pd.DataFrame | None = None
+                      ) -> pd.Series:
+        """Share of the league this team beats in each category.
+
+        Summed, this is how many categories the team would take against an
+        average opponent - the number a category league is actually played
+        for, rather than a total value that no scoring system awards.
+        """
+        table = self.standings() if table is None else table
+        return pd.Series({c: float((table.loc[team, c] > table[c].drop(team)).mean())
+                          for c in table.columns})
+
     def category_weights(self, team: int) -> pd.Series:
         """How much a marginal player could still change each category.
 

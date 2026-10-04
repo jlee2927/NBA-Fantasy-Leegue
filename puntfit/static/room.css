@@ -215,6 +215,16 @@ tbody tr:hover { background: rgba(244,241,233,.045); }
 .track-none { background: rgba(244,241,233,.06); color: var(--muted); }
 .track-none b { color: var(--muted); }
 
+/* --- results ----------------------------------------------------------- */
+.headline { display: flex; align-items: center; gap: 26px; flex-wrap: wrap; }
+.headline .big {
+  font-family: 'Barlow Condensed', sans-serif; font-size: 68px; font-weight: 800;
+  letter-spacing: -.03em; line-height: 1; color: var(--accent);
+}
+.headline .of { font-size: 13px; color: var(--muted); margin-left: 4px; }
+tr.punted td { opacity: .62; }
+tr.punted td:first-child { opacity: 1; }
+
 /* --- pills ------------------------------------------------------------- */
 .pill {
   display: inline-block; padding: 1px 8px; border-radius: 99px; font-size: 11px;

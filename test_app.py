@@ -563,3 +563,61 @@ def test_an_oversized_build_posted_directly_is_trimmed(client):
     kept = [c for c in ("fg", "ft", "tpm", "pts", "reb", "ast", "stl", "blk", "tov")
             if f">{c}<" in header]
     assert len(kept) >= 5
+
+
+# ------------------------------------------------------------ post-draft
+def _finish(client, **over):
+    """Run a draft to the final whistle."""
+    room = _start(client, teams="4", rounds="3", **over)
+    for _ in range(60):
+        page = client.get(room).data.decode()
+        if 'name="player" value="' not in page:
+            break
+        client.post(f"{room}/pick",
+                    data={"player": page.split('name="player" value="')[1].split('"')[0]})
+    return room
+
+
+def test_a_finished_draft_has_somewhere_to_go(client):
+    """A mock that fills every roster and stops has told the manager nothing."""
+    room = _finish(client)
+    page = client.get(room).data.decode()
+    assert "Draft complete" in page
+    assert f"{room}/results" in page
+
+
+def test_results_lead_with_categories_won(client):
+    """Not a total value - no category league awards one."""
+    page = client.get(f"{_finish(client)}/results").data.decode()
+    assert "How the draft turned out" in page
+    assert "of 9" in page
+
+
+def test_results_grade_the_punt_that_was_set(client):
+    room = _finish(client)
+    client.post(f"{room}/punt", data={"build": "tov"})
+    page = client.get(f"{room}/results").data.decode()
+    assert "You punted" in page and "tov" in page
+
+
+def test_results_say_when_no_build_was_set(client):
+    page = client.get(f"{_finish(client)}/results").data.decode()
+    assert "No build was set" in page
+
+
+def test_results_show_every_team(client):
+    page = client.get(f"{_finish(client)}/results").data.decode()
+    assert "Every team" in page
+    for t in range(1, 5):
+        assert f"T{t}" in page
+
+
+def test_results_of_an_unfinished_draft_say_so(client):
+    """Useful mid-draft, as long as it does not pretend to be final."""
+    room = _start(client, teams="4", rounds="3")
+    page = client.get(f"{room}/results").data.decode()
+    assert "still in progress" in page
+
+
+def test_results_of_a_missing_room_are_not_found(client):
+    assert client.get("/draft/nosuchroom/results").status_code == 404

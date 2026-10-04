@@ -1,7 +1,8 @@
 import pandas as pd
 import pytest
 
-from puntfit.positions import ALL, assign, derive, roster_view, slots_for
+from puntfit.positions import (ALL, assign, derive, disagreements,
+                               roster_view, slots_for)
 
 
 def test_the_template_matches_a_standard_category_league():
@@ -70,3 +71,32 @@ def test_derive_gives_some_players_dual_eligibility(projections):
     pos = derive(projections)
     assert sum(1 for p in pos if len(p) == 2) > 0
     assert all(set(p) <= set(ALL) for p in pos)
+
+
+def test_disagreements_flag_a_misfiled_big(projections):
+    """ESPN files Wembanyama under F, so the derivation can only ever reach
+    PF. The review list is the one place that can say otherwise."""
+    pos = derive(projections)
+    ranks = pd.Series(range(1, len(projections) + 1), index=projections.index)
+    rows = disagreements(projections, pos, ranks)
+    flagged = {r["player"]: r for r in rows}
+    assert "Victor Wembanyama" in flagged
+    assert flagged["Victor Wembanyama"]["suggests"] == "C"
+
+
+def test_disagreements_come_back_in_draft_order(projections):
+    """A wrong position in the first round matters; one in the three
+    hundredth does not."""
+    pos = derive(projections)
+    ranks = pd.Series(range(1, len(projections) + 1), index=projections.index)
+    rows = disagreements(projections, pos, ranks)
+    assert [r["rank"] for r in rows] == sorted(r["rank"] for r in rows)
+
+
+def test_disagreements_decide_nothing(projections):
+    """The derived position is reported alongside the suggestion, never
+    replaced by it - the league's platform is the authority."""
+    pos = derive(projections)
+    ranks = pd.Series(range(1, len(projections) + 1), index=projections.index)
+    for r in disagreements(projections, pos, ranks):
+        assert r["derived"] == "/".join(pos[r["player"]])

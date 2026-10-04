@@ -45,6 +45,19 @@ def test_the_landing_page_serves_its_own_stylesheet(client):
     assert client.get("/assets/ball.js").status_code == 200
 
 
+def test_positions_review_lists_the_doubtful_ones(client):
+    r = client.get("/positions")
+    assert r.status_code == 200
+    body = r.data.decode()
+    # ESPN files him under F, so nothing derived can reach a centre slot.
+    assert "Wembanyama" in body
+    assert "Positions worth checking" in body
+
+
+def test_positions_review_is_reachable_from_setup(client):
+    assert b"/positions" in client.get("/draft").data
+
+
 def test_health_says_so_when_no_database_is_configured(client, monkeypatch):
     """Solo drafts do not need one, so this is a healthy state, not an error.
 

@@ -1,0 +1,59 @@
+{% extends "base.html" %}
+{% block title %}NBA Fantasy Leegue - positions to check{% endblock %}
+{% block body %}
+<h1>Positions worth checking</h1>
+<p class="sub">
+  {{ rows|length }} player{{ '' if rows|length == 1 else 's' }} whose profile does
+  not match the group ESPN filed them under &middot;
+  <a href="{{ url_for('setup') }}">back to the draft</a>
+</p>
+
+<div class="panel" style="margin-bottom:16px">
+  <p class="muted" style="font-size:13px; margin:0">
+    ESPN publishes only G, F and C, so the derived split can shuffle a player
+    inside his group but never out of it &mdash; Wembanyama is filed under F and
+    cannot reach a centre slot however he plays. This list finds those cases by
+    scoring what a player actually does and asking whether another group fits
+    him better.
+  </p>
+  <p class="muted" style="font-size:13px; margin:10px 0 0">
+    It decides nothing. Eligibility is set by whichever platform your league
+    runs on, so check these against Yahoo and write the answers into
+    <code>{{ overrides }}</code>. A high score is frontcourt, a low one is
+    backcourt, and <strong>gap</strong> is how much better the suggested group fits.
+  </p>
+  <p class="muted" style="font-size:13px; margin:10px 0 0">
+    Expect false positives at the top. Joki&cacute; is flagged because he passes
+    like a guard, not because his position is wrong &mdash; the list finds
+    unusual players, and a miscategorised one is only the most common reason to
+    be unusual.
+  </p>
+</div>
+
+<div class="panel">
+  <div class="scroll">
+  <table>
+    <thead><tr>
+      <th class="n">Rank</th><th>Player</th>
+      <th>ESPN</th><th>Derived</th><th>Suggests</th>
+      <th class="n">Profile</th><th class="n">Gap</th>
+      <th>To override</th>
+    </tr></thead>
+    <tbody>
+    {% for r in rows %}
+      <tr>
+        <td class="n muted">{{ r.rank }}</td>
+        <td>{{ r.player }}</td>
+        <td class="muted">{{ r.espn }}</td>
+        <td class="muted">{{ r.derived }}</td>
+        <td><span class="pill">{{ r.suggests }}</span></td>
+        <td class="n muted">{{ '%+.2f'|format(r.profile) }}</td>
+        <td class="n muted">{{ '%.2f'|format(r.gap) }}</td>
+        <td class="muted"><code>{{ r.athlete_id }},{{ r.derived }}</code></td>
+      </tr>
+    {% endfor %}
+    </tbody>
+  </table>
+  </div>
+</div>
+{% endblock %}

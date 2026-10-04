@@ -166,3 +166,68 @@ def roster_view(roster: list[str], positions: pd.Series, rounds: int) -> dict:
         "starters_open": sum(1 for r in starters if r["player"] is None),
         "unplaced": len(roster) - sum(1 for f in filled if f is not None),
     }
+
+
+# What a player does on the floor, as one number: positive is frontcourt,
+# negative is backcourt. Rebounds and blocks say big; assists and threes say
+# guard.
+PROFILE = {"reb_pg": 1.0, "blk_pg": 1.0, "ast_pg": -1.0, "tpm_pg": -0.7}
+
+
+def floor_profile(df: pd.DataFrame, pool_size: int = 156) -> pd.Series:
+    """Standardised frontcourt score for every player."""
+    pool = df.nlargest(min(pool_size, len(df)), "proj_mpg")
+    minutes = df.proj_mpg.replace(0, pd.NA)
+    score = pd.Series(0.0, index=df.index)
+    for col, weight in PROFILE.items():
+        rate = df[col] / minutes * 36
+        ref = pool[col] / pool.proj_mpg.replace(0, pd.NA) * 36
+        sd = ref.std(ddof=0)
+        if sd:
+            score += weight * (rate - ref.mean()) / sd
+    return score.fillna(0.0)
+
+
+def disagreements(df: pd.DataFrame, positions: pd.Series, ranks: pd.Series,
+                  pool_size: int = 156, limit: int = 40) -> list[dict]:
+    """Players whose ESPN group looks wrong for what they actually do.
+
+    The derived split can only ever shuffle a player within the group ESPN put
+    him in, so when ESPN is wrong the derivation inherits it. Wembanyama is
+    filed under F and so can never reach a centre slot, however he plays.
+
+    This finds those cases by scoring every player on what he does and asking
+    whether a different group would fit him better. It decides nothing: the
+    authority on eligibility is whichever platform a league runs on, so the
+    output is a list to check, ordered by draft rank, because a wrong position
+    on the twelfth pick matters and on the three hundredth does not.
+    """
+    pool = df.nlargest(min(pool_size, len(df)), "proj_mpg")
+    score = floor_profile(df, pool_size)
+
+    groups = {}
+    for g in ("G", "F", "C"):
+        members = score[pool.index[pool.pos == g]]
+        if len(members) > 3:
+            groups[g] = (members.mean(), members.std(ddof=0) or 1.0)
+
+    out = []
+    for name in pool.index:
+        espn = df.pos.get(name)
+        if espn not in groups:
+            continue
+        mine = abs(score[name] - groups[espn][0]) / groups[espn][1]
+        best = min((g for g in groups if g != espn),
+                   key=lambda g: abs(score[name] - groups[g][0]) / groups[g][1])
+        theirs = abs(score[name] - groups[best][0]) / groups[best][1]
+        if theirs < mine - 0.75:        # another group is a clearly better fit
+            out.append({
+                "player": name,
+                "rank": int(ranks.get(name, 9999)),
+                "espn": espn,
+                "derived": "/".join(positions.get(name, ())),
+                "suggests": best,
+                "profile": round(float(score[name]), 2),
+                "gap": round(float(mine - theirs), 2),
+            })
+    return sorted(out, key=lambda r: r["rank"])[:limit]

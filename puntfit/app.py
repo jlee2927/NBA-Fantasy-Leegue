@@ -26,7 +26,7 @@ from flask import (Flask, make_response, redirect, render_template, request,
 from . import managers as Mg
 from .categories import FORMATS
 from .draft import MAX_EMPHASIS, NEUTRAL_EMPHASIS, DraftState, League
-from .positions import apply_overrides, derive, roster_view
+from .positions import apply_overrides, derive, disagreements, roster_view
 from . import store
 from .fetch_injuries import label as label_injuries
 from .valuation import load_projections, stat_headings, stat_table
@@ -168,6 +168,28 @@ def home():
 @app.get("/assets/<path:name>")
 def landing_asset(name: str):
     return send_from_directory(DOCS / "assets", name)
+
+
+@app.get("/positions")
+def positions_review():
+    """Positions worth checking against the league's own platform.
+
+    Not a decision, a worklist. The derived split can only shuffle a player
+    inside the group ESPN put him in, so when ESPN is wrong the derivation
+    inherits it, and nothing in a box score can promote Wembanyama to a centre
+    slot. Ordered by draft rank, because a wrong position in the first round
+    matters and one in the three hundredth does not.
+    """
+    players, _ = _load()
+    from .valuation import value_players
+    z, _ = value_players(players)
+    ranks = pd.Series(range(1, len(z) + 1), index=z.index)
+    rows = disagreements(players, app.config["positions"], ranks)
+    for r in rows:
+        athlete = players.player.get(r["player"])
+        r["athlete_id"] = "" if pd.isna(athlete) else str(int(athlete))
+    return render_template("positions.html", rows=rows,
+                           overrides=POSITIONS.as_posix())
 
 
 @app.get("/health")

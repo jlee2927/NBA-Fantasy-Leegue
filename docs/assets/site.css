@@ -182,11 +182,8 @@ h1, h2, .watch-card h3 {
 .process-card { min-height: 330px; padding: 28px 30px 36px 0; display: flex; flex-direction: column; }
 .process-card + .process-card { border-left: 1px solid #c5c8be; padding-left: 30px; }
 .process-number { font-size: 10px; font-weight: 700; letter-spacing: .15em; color: #a7522e; }
-.process-icon {
-  color: #bd6138; font-family: 'Barlow Condensed', sans-serif; font-size: 78px;
-  font-weight: 500; line-height: 1; margin-top: 30px; margin-bottom: auto;
-}
-.process-icon-circle { font-size: 83px; line-height: .9; }
+.process-icon { color: #bd6138; margin-top: 30px; margin-bottom: auto; }
+.process-icon svg { width: 62px; height: 62px; }
 .process-card h3 { font-family: 'Barlow Condensed', sans-serif; font-size: 38px; font-weight: 700; letter-spacing: -.025em; }
 .process-card p { color: #606861; font-size: 12px; line-height: 1.7; max-width: 270px; margin-top: 8px; }
 .process-foot {
@@ -393,7 +390,8 @@ pre.code .s { color: #e0a06d; }
   .process-grid { grid-template-columns: 1fr; }
   .process-card, .process-card + .process-card { min-height: 225px; padding: 20px 0; border-left: 0; }
   .process-card + .process-card { border-top: 1px solid #c5c8be; }
-  .process-icon { font-size: 52px; margin-top: 9px; }
+  .process-icon { margin-top: 9px; }
+  .process-icon svg { width: 44px; height: 44px; }
   .process-card h3 { font-size: 33px; }
   .process-card p { margin-top: 3px; }
   .process-foot { gap: 20px; font-size: 8px; }

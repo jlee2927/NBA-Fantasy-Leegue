@@ -25,6 +25,51 @@ from .valuation import DEFAULT_POOL, punt_value, value_players
 
 # How far from parity a category has to be before it stops being worth
 # chasing, measured in standard deviations of a team's season total.
+# Roster shape. The projection set carries only G, F and C - ESPN does not
+# publish a PG/SG split for every player - so the template is built on those
+# rather than inventing a distinction the data cannot support.
+#
+# The point is to stop somebody drafting nine guards. Centres are the binding
+# constraint: they are about 15% of the draftable pool, so a manager who
+# leaves them to the end finds nothing left.
+ROSTER_MINIMUMS = (("G", 3), ("F", 3), ("C", 2))
+
+
+def roster_slots(positions, rounds: int) -> dict:
+    """Which positional slots a roster has filled, and what is still open.
+
+    Players fill a slot of their own position first and spill into flex once
+    that is full, which is how a real lineup works: a fourth guard is playable,
+    he just stops counting toward the guard requirement.
+    """
+    need = {pos: n for pos, n in ROSTER_MINIMUMS}
+    required = sum(need.values())
+    # A short draft cannot be told it is eight players short of a legal roster,
+    # so the minimums scale down - but never below one of each.
+    if rounds < required:
+        need = {pos: max(1, round(n * rounds / required)) for pos, n in need.items()}
+        while sum(need.values()) > rounds:
+            need[max(need, key=need.get)] -= 1
+
+    filled = {pos: 0 for pos in need}
+    flex = 0
+    for pos in positions:
+        if pos in filled and filled[pos] < need[pos]:
+            filled[pos] += 1
+        else:
+            flex += 1                      # a spare, or a position off-template
+
+    return {
+        "rows": [{"pos": pos, "filled": filled[pos], "need": need[pos],
+                  "short": need[pos] - filled[pos]}
+                 for pos in need],
+        "flex_filled": flex,
+        "flex_total": max(0, rounds - sum(need.values())),
+        "short": sum(max(0, need[p] - filled[p]) for p in need),
+        "picks_left": rounds - len(positions),
+    }
+
+
 CONTEST_WIDTH = 1.0
 
 # A manager's own emphasis multiplies the automatic weighting. 1.0 leaves it

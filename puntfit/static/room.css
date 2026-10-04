@@ -158,6 +158,26 @@ td.n { text-align: right; font-variant-numeric: tabular-nums; }
 .scroll { overflow-x: auto; overscroll-behavior-x: contain; }
 tbody tr:hover { background: rgba(244,241,233,.045); }
 .mine-row, tr.mine-row:hover { background: rgba(232,120,64,.13); }
+/* The raw projection under its z-score in the combined view. Quieter than the
+   score above it, because the score is what the board is sorted by. */
+.raw { display: block; font-size: 10px; line-height: 1.35; opacity: .62; }
+
+/* --- roster shape ------------------------------------------------------ */
+.slots { display: flex; flex-direction: column; gap: 5px; margin-bottom: 4px; }
+.slot-row { display: flex; align-items: center; gap: 9px; }
+.slot-pos {
+  width: 20px; font-size: 11px; font-weight: 700; color: var(--muted);
+  letter-spacing: .06em;
+}
+.pips { display: flex; gap: 4px; flex: 1; }
+.pip {
+  width: 15px; height: 15px; border-radius: 4px; border: 1px solid var(--line);
+  background: rgba(10,12,10,.45);
+}
+.pip.filled { background: var(--accent); border-color: var(--accent); }
+.pip.flex { border-radius: 50%; }
+.slot-count { font-size: 11px; color: var(--muted); font-variant-numeric: tabular-nums; }
+.slot-short { color: var(--warn); font-weight: 600; }
 
 /* --- pills ------------------------------------------------------------- */
 .pill {

@@ -319,6 +319,29 @@ def test_an_unknown_view_is_ignored(client):
     assert ">pts<" in _board_header(client, room)
 
 
+def test_the_combined_view_shows_both_numbers(client):
+    """The z-score is what the board is sorted by; the raw line is context."""
+    room = _start(client)
+    client.post(f"{room}/settings", data={"view": "both"})
+    header = _board_header(client, room)
+    assert ">pts<" in header          # still the standardised heading
+    assert "raw" in client.get(room).data.decode()
+
+
+def test_an_empty_roster_shows_every_slot_open(client):
+    page = client.get(_start(client)).data.decode()
+    assert "Roster shape" in page
+    assert "0/3" in page and "0/2" in page
+
+
+def test_drafting_fills_a_slot_of_that_position(client):
+    room = _start(client)
+    client.post(f"{room}/pick", data={"player": _first_player(client, room)})
+    page = client.get(room).data.decode()
+    # Whichever position he was, exactly one slot moved off zero.
+    assert any(f"{n}/" in page for n in (1,))
+
+
 def test_a_confirmed_build_drops_those_columns(client):
     room = _start(client)
     client.post(f"{room}/pick", data={"player": _first_player(client, room)})

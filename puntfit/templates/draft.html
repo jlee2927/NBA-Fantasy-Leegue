@@ -78,6 +78,7 @@
     <select name="view" onchange="this.form.submit()">
       <option value="value" {% if view == 'value' %}selected{% endif %}>Standardised value</option>
       <option value="stats" {% if view == 'stats' %}selected{% endif %}>Projected stats</option>
+      <option value="both" {% if view == 'both' %}selected{% endif %}>Both</option>
     </select>
   </label>
   <span class="muted" style="font-size:12px">
@@ -175,6 +176,9 @@
         {% if view == 'stats' %}
           {% for h in stat_headings %}<th class="n">{{ h }}</th>{% endfor %}
           <th class="n">g</th><th class="n">m/g</th>
+        {% elif view == 'both' %}
+          {% for c in cats %}<th class="n">{{ c }}</th>{% endfor %}
+          <th class="n">g</th><th class="n">m/g</th>
         {% else %}
           {% for c in cats %}<th class="n">{{ c }}</th>{% endfor %}
         {% endif %}
@@ -205,6 +209,12 @@
             {% set s = stats.loc[name] %}
             {% for c in cats %}<td class="n muted">{{ s[c] }}</td>{% endfor %}
             <td class="n muted">{{ s['g'] }}</td><td class="n muted">{{ s['m/g'] }}</td>
+          {% elif view == 'both' %}
+            {% set s = stats.loc[name] %}
+            {% for c in cats %}
+              <td class="n muted">{{ '%+.1f'|format(row[c]) }}<span class="raw">{{ s[c] }}</span></td>
+            {% endfor %}
+            <td class="n muted">{{ s['g'] }}</td><td class="n muted">{{ s['m/g'] }}</td>
           {% else %}
             {% for c in cats %}<td class="n muted">{{ '%+.1f'|format(row[c]) }}</td>{% endfor %}
           {% endif %}
@@ -223,6 +233,48 @@
   </div>
 
   <div>
+    <div class="panel" style="margin-bottom:16px">
+      <h2>Roster shape</h2>
+      <div class="slots">
+        {% for r in slots.rows %}
+        <div class="slot-row">
+          <span class="slot-pos">{{ r.pos }}</span>
+          <span class="pips">
+            {% for i in range(r.need) %}
+            <span class="pip {% if i < r.filled %}filled{% endif %}"></span>
+            {% endfor %}
+          </span>
+          <span class="slot-count {% if r.short > 0 %}slot-short{% endif %}">
+            {{ r.filled }}/{{ r.need }}
+          </span>
+        </div>
+        {% endfor %}
+        {% if slots.flex_total %}
+        <div class="slot-row">
+          <span class="slot-pos">+</span>
+          <span class="pips">
+            {% for i in range(slots.flex_total) %}
+            <span class="pip flex {% if i < slots.flex_filled %}filled{% endif %}"></span>
+            {% endfor %}
+          </span>
+          <span class="slot-count">{{ slots.flex_filled }}/{{ slots.flex_total }}</span>
+        </div>
+        {% endif %}
+      </div>
+      <p class="muted" style="font-size:11px; margin:6px 0 0">
+        {% if slots.short > slots.picks_left %}
+          <strong class="slot-short">{{ slots.short }} slots still open and only
+          {{ slots.picks_left }} pick{{ '' if slots.picks_left == 1 else 's' }}
+          left.</strong>
+        {% elif slots.short %}
+          {{ slots.short }} position{{ '' if slots.short == 1 else 's' }} still to
+          fill. Centres are about 15% of the pool, so they run out first.
+        {% else %}
+          Every position covered. The rest is best available.
+        {% endif %}
+      </p>
+    </div>
+
     <div class="panel" style="margin-bottom:16px">
       <h2>Your roster ({{ mine|length }})</h2>
       {% if mine %}

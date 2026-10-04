@@ -25,7 +25,8 @@ from flask import (Flask, make_response, redirect, render_template, request,
 
 from . import managers as Mg
 from .categories import FORMATS
-from .draft import MAX_EMPHASIS, NEUTRAL_EMPHASIS, DraftState, League
+from .draft import (MAX_EMPHASIS, NEUTRAL_EMPHASIS, DraftState, League,
+                    roster_slots)
 from .fetch_injuries import label as label_injuries
 from .valuation import load_projections, stat_headings, stat_table
 
@@ -287,9 +288,14 @@ def room(room_id: str):
         builds = state.suggest_punts(mine[0], n_punts,
                                      limit=BUILDS_OFFERED[room["build_mode"]])
 
+    # Drafted in order, so a player fills a slot of his own position before
+    # spilling into flex.
+    slots = roster_slots(
+        [players.pos.get(n) for n in mine], state.league.rounds)
+
     cats = [c for c in board.columns if c != "total"]
     view = room.get("view", "value")
-    stats = stat_table(detail, cats) if view == "stats" else None
+    stats = stat_table(detail, cats) if view in ("stats", "both") else None
 
     return render_template(
         "draft.html", room_id=room_id, state=state, seat=seat, mode=room["mode"],
@@ -301,7 +307,7 @@ def room(room_id: str):
         n_punts=n_punts, max_punts=state.league.max_punts,
         weights=state.weights(seat) if mine else None,
         auto_weights=state.category_weights(seat) if mine else None,
-        emphasis=state.emphasis.get(seat, {}),
+        emphasis=state.emphasis.get(seat, {}), slots=slots,
         max_emphasis=MAX_EMPHASIS,
         confirm_restart=request.args.get("restart") == "1",
         my_turn=state.on_the_clock == seat,
@@ -346,7 +352,7 @@ def settings(room_id: str):
         value = request.form.get(key)
         if value in {"auto", "manual"}:
             room[key] = value
-    if request.form.get("view") in {"value", "stats"}:
+    if request.form.get("view") in {"value", "stats", "both"}:
         room["view"] = request.form["view"]
     _advance(room)
     return save(room_id, room, redirect(url_for("room", room_id=room_id)))

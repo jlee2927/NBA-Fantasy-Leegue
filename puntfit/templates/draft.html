@@ -179,7 +179,7 @@
     <table>
       <thead><tr>
         <th></th><th>Player</th><th>Team</th><th>Pos</th>
-        <th class="n">Value</th>
+        <th class="n">Value</th><th class="n">ADP</th>
         {% if view in ('stats', 'last') %}
           {% for h in stat_headings %}<th class="n">{{ h }}</th>{% endfor %}
           <th class="n">g</th><th class="n">m/g</th>
@@ -213,6 +213,7 @@
           <td class="muted">{{ p.team }}</td>
           <td class="muted">{{ p.pos }}</td>
           <td class="n"><strong>{{ '%.2f'|format(row.total) }}</strong></td>
+          <td class="n muted">{% if adp.get(name) == adp.get(name) and adp.get(name) %}{{ adp[name]|int }}{% else %}&mdash;{% endif %}</td>
           {% if view in ('stats', 'last') %}
             {% set s = stats.loc[name] %}
             {% for c in cats %}<td class="n muted">{{ s[c] }}</td>{% endfor %}
@@ -241,6 +242,46 @@
   </div>
 
   <div>
+    <div class="panel" style="margin-bottom:16px">
+      <h2>Where the room is wrong</h2>
+      {% if has_adp %}
+      <p class="muted" style="font-size:11px; margin:-4px 0 8px">
+        Still available, ranked well above where ESPN has them going. Edge is
+        how many picks later the room takes him than we would.
+      </p>
+      <table>
+        <thead><tr><th>Player</th><th class="n">Us</th><th class="n">ADP</th><th class="n">Edge</th></tr></thead>
+        {% for b in bargains %}
+        <tr>
+          <td>{{ b.player }}</td>
+          <td class="n muted">{{ b.rank }}</td>
+          <td class="n muted">{{ b.adp }}</td>
+          <td class="n"><span class="pill">+{{ b.edge }}</span></td>
+        </tr>
+        {% endfor %}
+      </table>
+      <p class="muted" style="font-size:11px; margin:12px 0 6px">
+        And the other way &mdash; taken well before we would, so let them go.
+      </p>
+      <table>
+        {% for b in reaches %}
+        <tr>
+          <td>{{ b.player }}</td>
+          <td class="n muted">{{ b.rank }}</td>
+          <td class="n muted">{{ b.adp }}</td>
+          <td class="n"><span class="pill out">{{ b.edge }}</span></td>
+        </tr>
+        {% endfor %}
+      </table>
+      {% else %}
+      <p class="muted" style="font-size:12px; margin:0">
+        No draft positions loaded. Run
+        <code>python -m puntfit.fetch_adp</code> for ESPN's, or type your
+        league's into <code>data/adp_manual.csv</code>.
+      </p>
+      {% endif %}
+    </div>
+
     <div class="panel" style="margin-bottom:16px">
       <h2>Roster &mdash; {{ slots.filled }}/{{ slots.total }}{% if slots.unplaced %} &middot; {{ slots.unplaced }} unplaced{% endif %}</h2>
       <table class="roster">

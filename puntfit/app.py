@@ -41,6 +41,7 @@ PROSPECTS = Path("data/prospect_projections.json")
 INJURIES = Path("data/injuries.csv")
 SEASONS = Path("data/nba_seasons.parquet")
 POSITIONS = Path("data/positions_manual.csv")
+ADP = Path("data/adp.csv")
 
 app = Flask(__name__)
 app.config["PROJECTIONS"] = PROJECTIONS
@@ -153,6 +154,15 @@ def _load():
         # compared against season 2026, the year just finished.
         finished = int(str(params.get("target_season", "0-0")).split("-")[0])
         app.config["last_season"] = last_season(SEASONS, df, finished)
+        # Where the market takes players, kept strictly apart from what they
+        # are worth. Blending the two would make this ranking a partial copy
+        # of the consensus it exists to disagree with.
+        adp = pd.Series(dtype=float)
+        if ADP.exists():
+            table = pd.read_csv(ADP).dropna(subset=["adp"])
+            by_id = dict(zip(table.athlete_id, table.adp))
+            adp = df.player.map(by_id)
+        app.config["adp"] = adp
         app.config["last_label"] = f"{finished - 1}-{str(finished)[2:]}"
     return app.config["players"], app.config["params"]
 
@@ -347,6 +357,23 @@ def room(room_id: str):
 
     slots = roster_view(mine, app.config["positions"], state.league.rounds)
 
+    # Our ranking against the room's. A positive edge means the market
+    # takes him later than we rate him, which is the only place a draft is
+    # actually won.
+    adp = app.config.get("adp", pd.Series(dtype=float))
+    our_rank = pd.Series(range(1, len(ranked) + 1), index=ranked.index)
+    edge = (adp.reindex(ranked.index) - our_rank).dropna()
+    def gap(names):
+        return [{"player": n, "rank": int(our_rank[n]), "adp": int(adp[n]),
+                 "edge": int(edge[n])} for n in names]
+
+    ordered = edge.sort_values(ascending=False)
+    bargains = gap(ordered.head(6).index)
+    # The other half of the trade. A player the room takes well before we
+    # would is one to let go, which is as useful as knowing who to wait for
+    # and much easier to get wrong in the moment.
+    reaches = gap(ordered.tail(4).index[::-1])
+
     cats = [c for c in board.columns if c != "total"]
     view = room.get("view", "value")
     stats = stat_table(detail, cats) if view in ("stats", "both") else None
@@ -369,6 +396,7 @@ def room(room_id: str):
         weights=state.weights(seat) if mine else None,
         auto_weights=state.category_weights(seat) if mine else None,
         emphasis=state.emphasis.get(seat, {}), slots=slots,
+        adp=adp, bargains=bargains, reaches=reaches, has_adp=bool(len(edge)),
         max_emphasis=MAX_EMPHASIS,
         confirm_restart=request.args.get("restart") == "1",
         my_turn=state.on_the_clock == seat,

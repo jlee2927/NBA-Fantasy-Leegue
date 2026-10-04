@@ -621,3 +621,29 @@ def test_results_of_an_unfinished_draft_say_so(client):
 
 def test_results_of_a_missing_room_are_not_found(client):
     assert client.get("/draft/nosuchroom/results").status_code == 404
+
+
+# ------------------------------------------------------------------- ADP
+def test_the_board_carries_a_draft_position(client):
+    page = client.get(_start(client)).data.decode()
+    assert ">ADP<" in page
+
+
+def test_the_arbitrage_panel_works_both_ways(client):
+    """Knowing who to let go is as useful as knowing who to wait for."""
+    page = client.get(_start(client)).data.decode()
+    assert "Where the room is wrong" in page
+    assert "let them go" in page
+
+
+def test_adp_is_not_folded_into_value(client):
+    """Value answers how good a player is; ADP answers when he goes. Blending
+    them would make these rankings a partial copy of the consensus they exist
+    to disagree with."""
+    import puntfit.app as A
+    z = A._load()[0]
+    page = client.get(_start(client)).data.decode()
+    body = page.split("Best available")[1]
+    # The board is still ordered by value, descending, with ADP alongside.
+    vals = [float(v) for v in re.findall(r"<strong>(\\d\\.\\d\\d)</strong>", body)]
+    assert vals == sorted(vals, reverse=True)

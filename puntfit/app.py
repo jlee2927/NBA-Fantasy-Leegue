@@ -426,12 +426,20 @@ def _timing_header(response):
     ms = request.environ.get("db_ms")
     if ms is not None:
         response.headers["X-Db-Ms"] = str(ms)
+    marks = request.environ.get("marks")
+    if marks:
+        response.headers["X-Marks"] = ";".join(
+            f"{k}={v}" for k, v in marks.items() if v is not None)
     return response
 
 
 @app.get("/draft/<room_id>")
 def room(room_id: str):
+    import time as _t
+    _m = {}
+    _a = _t.perf_counter()
     room = _room(room_id)
+    _m["room"] = round(1000 * (_t.perf_counter() - _a), 1)
     if room is None:
         return render_template("gone.html", room_id=room_id), 404
 
@@ -451,7 +459,9 @@ def room(room_id: str):
     players, _ = _load()
     seat = room["seat"]
 
+    _a = _t.perf_counter()
     ranked = state.recommend(team=seat, limit=len(state.projections))
+    _m["recommend"] = round(1000 * (_t.perf_counter() - _a), 1)
     search = request.args.get("q", "").strip()
     if search:
         ranked = ranked[ranked.index.str.contains(search, case=False, regex=False)]
@@ -474,7 +484,9 @@ def room(room_id: str):
         builds = state.suggest_punts(mine[0], n_punts,
                                      limit=BUILDS_OFFERED[room["build_mode"]])
 
+    _a = _t.perf_counter()
     slots = roster_view(mine, app.config["positions"], state.league.rounds)
+    _m["roster"] = round(1000 * (_t.perf_counter() - _a), 1)
 
     # Our ranking against the room's. A positive edge means the market
     # takes him later than we rate him, which is the only place a draft is
@@ -501,6 +513,8 @@ def room(room_id: str):
         view = "stats"                 # no history available; show the forecast
         stats = stat_table(detail, cats)
 
+    request.environ["marks"] = _m
+    _m["pre_render"] = round(1000 * (_t.perf_counter() - _t0_req), 1) if (_t0_req := None) else None
     return render_template(
         "draft.html", room_id=room_id, state=state, seat=seat, mode=room["mode"],
         board=board, detail=detail, cats=cats,

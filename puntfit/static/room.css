@@ -172,8 +172,22 @@ td.n { text-align: right; font-variant-numeric: tabular-nums; }
   box-shadow: inset -1px 0 0 rgba(244,241,233,.1);
 }
 .scroll thead th:nth-child(2) { z-index: 4; }
-.scroll tbody tr:hover td:nth-child(2) { background: #1b201b; }
-.scroll tbody tr.mine-row td:nth-child(2) { background: #2a1f18; }
+
+/* The draft button is pinned to the other edge for the same reason the name
+   is pinned to this one. It is the only thing on the row you can act on, and
+   scrolling right to read a category used to push it off screen - so taking
+   a player meant scrolling back every time. */
+.scroll tbody td:last-child,
+.scroll thead th:last-child {
+  position: sticky; right: 0; z-index: 2; background: #151915;
+  box-shadow: inset 1px 0 0 rgba(244,241,233,.1);
+}
+.scroll thead th:last-child { z-index: 4; }
+
+.scroll tbody tr:hover td:nth-child(2),
+.scroll tbody tr:hover td:last-child { background: #1b201b; }
+.scroll tbody tr.mine-row td:nth-child(2),
+.scroll tbody tr.mine-row td:last-child { background: #2a1f18; }
 
 /* Narrow windows only: cap the board's height so its horizontal scrollbar is
    on screen. Otherwise it sits below forty rows of players, and reaching it

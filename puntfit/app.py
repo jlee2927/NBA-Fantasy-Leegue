@@ -279,10 +279,19 @@ def health():
                 "detail": "DATABASE_URL is unset; solo drafts work, shared "
                           "rooms are unavailable"}, 200
     try:
+        import time as _t
         store.ensure_schema()
+        marks = {}
+        t0 = _t.perf_counter()
+        with store.connection() as conn:
+            marks["acquire_ms"] = round(1000 * (_t.perf_counter() - t0), 1)
+            t1 = _t.perf_counter()
+            conn.execute("SELECT 1").fetchone()
+            marks["query_ms"] = round(1000 * (_t.perf_counter() - t1), 1)
+        marks["total_ms"] = round(1000 * (_t.perf_counter() - t0), 1)
         info = store.check()
         host = store.database_url().split("@")[-1].split("/")[0]
-        return {"database": "ok", "host": host,
+        return {"database": "ok", "host": host, "timing": marks,
                 "server": info["version"], "tables": info["tables"]}, 200
     except Exception as e:
         # The class name alone, because the message can carry the connection

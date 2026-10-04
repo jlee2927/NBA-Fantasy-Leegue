@@ -528,5 +528,24 @@ for _ in range(MAX_PASSES):
 
 </div>
 <script src="assets/ball.js"></script>
+<script>
+// Wake the draft assistant while this page is being read.
+//
+// Render's free tier sleeps a service after about fifteen minutes idle, and
+// waking it takes the better part of a minute. Anyone here is several seconds
+// of reading away from clicking "start your draft", which is most of that
+// wait already spent - so the request goes out now rather than when they
+// click.
+//
+// no-cors because the reply is of no interest: the point is that the request
+// arrives. Failures are ignored for the same reason, and this never blocks or
+// delays anything on the page.
+(function () {
+  try {
+    fetch('https://nba-fantasy-league.onrender.com/health',
+          { mode: 'no-cors', cache: 'no-store' }).catch(function () {});
+  } catch (e) { /* an old browser not waking a server is not a problem */ }
+})();
+</script>
 </body>
 </html>

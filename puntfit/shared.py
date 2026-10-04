@@ -46,7 +46,9 @@ def create(room_id: str, *, teams: int, rounds: int, fmt: str, seed: int,
 
 
 def load(room_id: str) -> dict | None:
-    """Everything needed to rebuild the room, in two queries."""
+    """Everything needed to rebuild the room."""
+    import time
+    t0 = time.perf_counter()
     with store.connection() as conn:
         row = conn.execute(
             "SELECT teams, rounds, format, seed, fingerprint, host_token"
@@ -62,6 +64,7 @@ def load(room_id: str) -> dict | None:
 
     teams, rounds, fmt, seed, fingerprint, host_token = row
     return {
+        "_ms": round(1000 * (time.perf_counter() - t0), 1),
         "teams": teams, "rounds": rounds, "format": fmt, "seed": seed,
         "fingerprint": fingerprint, "host_token": host_token,
         "picks": [p[2] for p in picks],

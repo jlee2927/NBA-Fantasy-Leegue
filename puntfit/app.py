@@ -198,6 +198,7 @@ def _shared(room_id: str) -> dict | None:
             return None                  # projections moved under the room
 
     seat = shared.seat_for(saved, request.cookies.get(SEAT + room_id))
+    app.config["last_db_ms"] = saved.pop("_ms", None)
     settings = saved["seats"].get(seat, {}) if seat is not None else {}
     if seat is not None and settings.get("punts"):
         state.set_punt(seat, tuple(settings["punts"]))
@@ -420,6 +421,14 @@ def join(room_id: str):
     return response
 
 
+@app.after_request
+def _timing_header(response):
+    ms = request.environ.get("db_ms")
+    if ms is not None:
+        response.headers["X-Db-Ms"] = str(ms)
+    return response
+
+
 @app.get("/draft/<room_id>")
 def room(room_id: str):
     room = _room(room_id)
@@ -428,6 +437,9 @@ def room(room_id: str):
 
     # Whoever opens the invite link without a seat is being invited, not
     # locked out.
+    if room.get("shared"):
+        # Temporary: how long the database half of this request took.
+        request.environ["db_ms"] = app.config.get("last_db_ms")
     if room.get("shared") and room["seat"] is None:
         return render_template(
             "join.html", room_id=room_id, room=room,

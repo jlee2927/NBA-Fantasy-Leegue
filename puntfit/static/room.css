@@ -155,29 +155,55 @@ th {
 td.n { text-align: right; font-variant-numeric: tabular-nums; }
 /* The board carries a column per category, so it is wider than a phone. It
    scrolls inside its own panel rather than dragging the page sideways. */
-.scroll { overflow-x: auto; overscroll-behavior-x: contain; }
+.scroll { overflow: auto; overscroll-behavior-x: contain; }
+
+/* The heading row stays put, so a number halfway down the board still has a
+   column name attached to it. box-shadow rather than a border because a
+   collapsed border does not travel with a sticky cell. */
+.scroll thead th {
+  position: sticky; top: 0; z-index: 3; background: #151915;
+  box-shadow: inset 0 -1px 0 rgba(244,241,233,.14);
+}
+/* The player's name stays put too. Scrolling sideways to read a category is
+   useless if you lose track of whose row you are on. */
+.scroll tbody td:nth-child(2),
+.scroll thead th:nth-child(2) {
+  position: sticky; left: 0; z-index: 2; background: #151915;
+  box-shadow: inset -1px 0 0 rgba(244,241,233,.1);
+}
+.scroll thead th:nth-child(2) { z-index: 4; }
+.scroll tbody tr:hover td:nth-child(2) { background: #1b201b; }
+.scroll tbody tr.mine-row td:nth-child(2) { background: #2a1f18; }
+
+/* Narrow windows only: cap the board's height so its horizontal scrollbar is
+   on screen. Otherwise it sits below forty rows of players, and reaching it
+   means scrolling to the bottom of the list first. */
+@media (max-width: 900px) {
+  .scroll { max-height: 70vh; }
+}
 tbody tr:hover { background: rgba(244,241,233,.045); }
 .mine-row, tr.mine-row:hover { background: rgba(232,120,64,.13); }
 /* The raw projection under its z-score in the combined view. Quieter than the
    score above it, because the score is what the board is sorted by. */
 .raw { display: block; font-size: 10px; line-height: 1.35; opacity: .62; }
 
-/* --- roster shape ------------------------------------------------------ */
-.slots { display: flex; flex-direction: column; gap: 5px; margin-bottom: 4px; }
-.slot-row { display: flex; align-items: center; gap: 9px; }
-.slot-pos {
-  width: 20px; font-size: 11px; font-weight: 700; color: var(--muted);
-  letter-spacing: .06em;
+/* --- roster ------------------------------------------------------------ */
+.roster td { padding: 4px 6px; font-size: 12px; }
+.roster .slot-pos {
+  width: 34px; font-size: 10px; font-weight: 700; color: var(--muted);
+  letter-spacing: .08em;
 }
-.pips { display: flex; gap: 4px; flex: 1; }
-.pip {
-  width: 15px; height: 15px; border-radius: 4px; border: 1px solid var(--line);
-  background: rgba(10,12,10,.45);
+.roster tr.bench .slot-pos { opacity: .55; }
+.roster .empty { color: var(--muted); font-style: italic; opacity: .6; }
+.roster .elig { text-align: right; font-size: 10px; color: var(--muted); }
+.tracker { display: flex; flex-wrap: wrap; gap: 5px; }
+.track {
+  font-size: 10px; font-weight: 700; letter-spacing: .06em; padding: 3px 8px;
+  border-radius: 99px; background: rgba(232,120,64,.15); color: #f0a077;
 }
-.pip.filled { background: var(--accent); border-color: var(--accent); }
-.pip.flex { border-radius: 50%; }
-.slot-count { font-size: 11px; color: var(--muted); font-variant-numeric: tabular-nums; }
-.slot-short { color: var(--warn); font-weight: 600; }
+.track b { font-weight: 700; color: var(--ink); }
+.track-none { background: rgba(244,241,233,.06); color: var(--muted); }
+.track-none b { color: var(--muted); }
 
 /* --- pills ------------------------------------------------------------- */
 .pill {

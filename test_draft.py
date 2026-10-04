@@ -4,7 +4,7 @@ import pandas as pd
 import pytest
 
 import puntfit.valuation as V
-from puntfit.draft import DraftState, League, roster_slots
+from puntfit.draft import DraftState, League
 
 PROJECTIONS = Path(__file__).parent / "data" / "marcel_projections.json"
 
@@ -270,31 +270,3 @@ def test_an_empty_roster_has_nothing_to_lean_on(draft):
     assert list(draft.recommend(0, limit=5, contest=True).index) == \
            list(draft.recommend(0, limit=5, contest=False).index)
 
-
-# ------------------------------------------------------------ roster shape
-def test_an_empty_roster_needs_every_position():
-    slots = roster_slots([], 13)
-    assert slots["short"] == 8
-    assert slots["flex_total"] == 5
-
-
-def test_a_fourth_guard_stops_counting_toward_the_guard_requirement():
-    """Five guards is a legal roster and a bad one. The template has to say
-    so: the extras are playable, they just stop filling the G requirement."""
-    slots = roster_slots(["G"] * 5, 13)
-    guards = next(r for r in slots["rows"] if r["pos"] == "G")
-    assert guards["filled"] == guards["need"] == 3
-    assert slots["flex_filled"] == 2
-    assert slots["short"] == 5          # still owes 3 F and 2 C
-
-
-def test_a_short_draft_scales_the_minimums_down():
-    """A five-round league cannot be told it is eight players short."""
-    slots = roster_slots([], 5)
-    assert sum(r["need"] for r in slots["rows"]) <= 5
-    assert all(r["need"] >= 1 for r in slots["rows"])
-
-
-def test_an_unknown_position_counts_as_flex():
-    slots = roster_slots([None, "PF"], 13)
-    assert slots["flex_filled"] == 2

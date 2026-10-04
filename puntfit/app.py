@@ -25,8 +25,8 @@ from flask import (Flask, make_response, redirect, render_template, request,
 
 from . import managers as Mg
 from .categories import FORMATS
-from .draft import (MAX_EMPHASIS, NEUTRAL_EMPHASIS, DraftState, League,
-                    roster_slots)
+from .draft import MAX_EMPHASIS, NEUTRAL_EMPHASIS, DraftState, League
+from .positions import apply_overrides, derive, roster_view
 from .fetch_injuries import label as label_injuries
 from .valuation import load_projections, stat_headings, stat_table
 
@@ -37,6 +37,7 @@ DOCS = Path(__file__).resolve().parent.parent / "docs"
 PROJECTIONS = Path("data/marcel_projections.json")
 PROSPECTS = Path("data/prospect_projections.json")
 INJURIES = Path("data/injuries.csv")
+POSITIONS = Path("data/positions_manual.csv")
 
 app = Flask(__name__)
 app.config["PROJECTIONS"] = PROJECTIONS
@@ -143,6 +144,7 @@ def _load():
         for col in ("injury_status", "injury_detail"):
             df[col] = df[col].where(df[col].notna(), "")
         app.config["players"], app.config["params"] = df, params
+        app.config["positions"] = apply_overrides(derive(df), df, POSITIONS)
     return app.config["players"], app.config["params"]
 
 
@@ -288,10 +290,7 @@ def room(room_id: str):
         builds = state.suggest_punts(mine[0], n_punts,
                                      limit=BUILDS_OFFERED[room["build_mode"]])
 
-    # Drafted in order, so a player fills a slot of his own position before
-    # spilling into flex.
-    slots = roster_slots(
-        [players.pos.get(n) for n in mine], state.league.rounds)
+    slots = roster_view(mine, app.config["positions"], state.league.rounds)
 
     cats = [c for c in board.columns if c != "total"]
     view = room.get("view", "value")

@@ -330,16 +330,18 @@ def test_the_combined_view_shows_both_numbers(client):
 
 def test_an_empty_roster_shows_every_slot_open(client):
     page = client.get(_start(client)).data.decode()
-    assert "Roster shape" in page
-    assert "0/3" in page and "0/2" in page
+    assert "Roster &mdash; 0/13" in page or "Roster — 0/13" in page
+    assert page.count("Empty") == 13
+    assert "Position tracker" in page
 
 
-def test_drafting_fills_a_slot_of_that_position(client):
+def test_drafting_puts_the_player_in_a_slot(client):
     room = _start(client)
-    client.post(f"{room}/pick", data={"player": _first_player(client, room)})
+    name = _first_player(client, room)
+    client.post(f"{room}/pick", data={"player": name})
     page = client.get(room).data.decode()
-    # Whichever position he was, exactly one slot moved off zero.
-    assert any(f"{n}/" in page for n in (1,))
+    assert page.count("Empty") == 12
+    assert "13 starting slot" not in page
 
 
 def test_a_confirmed_build_drops_those_columns(client):

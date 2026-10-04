@@ -35,17 +35,26 @@
 
 {% if confirm_restart %}
 <div class="panel" style="margin-bottom:16px; border-left:3px solid var(--warn)">
+  {% if room_shared %}
+  <strong>Leave this room?</strong>
+  <span class="muted">
+    Your seat goes back to the pool and the simulated managers take it over.
+    The draft carries on without you &mdash; it belongs to everyone in it, so
+    leaving does not end it.
+  </span>
+  {% else %}
   <strong>Start over?</strong>
   <span class="muted">
     This ends the draft in progress &mdash; {{ state.picks|length }}
     pick{{ '' if state.picks|length == 1 else 's' }} so far, including your
     {{ mine|length }} &mdash; and cannot be undone.
   </span>
+  {% endif %}
   <div style="margin-top:10px; display:flex; gap:8px">
     <form method="post" action="{{ url_for('restart', room_id=room_id) }}">
       <button class="go" type="submit"
               style="background:var(--warn); border-color:var(--warn)">
-        Yes, start over
+        {{ 'Yes, leave' if room_shared else 'Yes, start over' }}
       </button>
     </form>
     <a href="{{ url_for('room', room_id=room_id) }}">

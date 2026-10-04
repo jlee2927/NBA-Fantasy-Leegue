@@ -541,6 +541,10 @@ def results(room_id: str):
         return render_template("gone.html", room_id=room_id), 404
     state: DraftState = room["state"]
     seat = room["seat"]
+    if seat is None:
+        # Opened the invite link and came straight here. There is no "your
+        # team" to report on until a seat is taken.
+        return redirect(url_for("room", room_id=room_id))
     players, _ = _load()
 
     table = state.standings()
@@ -624,6 +628,14 @@ def restart(room_id: str):
     manager reaching for it after something went wrong should not be able to
     destroy a good draft with one stray click.
     """
+    room = _room(room_id)
+    if room is not None and room.get("shared"):
+        # Everybody else in the room is still drafting. Leaving gives up the
+        # seat; it does not throw away their draft.
+        response = redirect(url_for("setup"))
+        response.delete_cookie(SEAT + room_id)
+        return response
+
     _rooms.pop(room_id, None)
     response = redirect(url_for("setup"))
     response.delete_cookie(COOKIE + room_id)

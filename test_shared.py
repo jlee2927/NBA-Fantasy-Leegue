@@ -214,3 +214,25 @@ def test_a_room_does_not_poll_while_you_are_on_the_clock(client, db):
     client.set_cookie("puntfit_seat_sharedroom", "mine")
     page = client.get("/draft/sharedroom").data.decode()
     assert "var mine = true;" in page
+
+
+def test_standings_without_a_seat_offer_one_instead_of_failing(client, db):
+    """Opening the invite link and going straight to standings used to raise
+    a KeyError on seat None, which is a 500 on somebody's first contact with
+    the room."""
+    r = client.get("/draft/sharedroom/results")
+    assert r.status_code == 302
+    assert r.headers["Location"].endswith("/draft/sharedroom")
+
+
+def test_leaving_a_shared_room_does_not_end_it_for_everyone(client, db):
+    """Restart throws away a solo draft, which is the drafter's to throw. A
+    shared draft belongs to the room."""
+    db.seats[0]["token"] = "mine"
+    db.picks.append("Nikola Jokic")
+    client.set_cookie("puntfit_seat_sharedroom", "mine")
+    r = client.post("/draft/sharedroom/restart")
+    assert r.status_code == 302
+    assert db.picks == ["Nikola Jokic"]      # the draft is untouched
+    assert any("puntfit_seat_sharedroom=;" in h
+               for h in r.headers.getlist("Set-Cookie"))

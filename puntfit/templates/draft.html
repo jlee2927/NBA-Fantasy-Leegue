@@ -14,6 +14,25 @@
   </p>
 </div>
 
+{% if room_shared %}
+<div class="panel" style="margin-bottom:16px">
+  <h2>Invite the rest of your league</h2>
+  <div style="display:flex; gap:10px; align-items:center; flex-wrap:wrap">
+    <input id="invite" readonly value="{{ invite }}"
+           style="flex:1; min-width:260px; font-size:12px"
+           onclick="this.select()">
+    <button type="button" onclick="
+      navigator.clipboard.writeText(document.getElementById('invite').value);
+      this.textContent='Copied';">Copy link</button>
+  </div>
+  <p class="muted" style="font-size:12px; margin:10px 0 0">
+    {{ seats_taken }} of {{ state.league.teams }} seats taken. Anyone opening
+    this link takes the next free one; the rest are drafted by simulated
+    managers, so a short league still finishes.
+  </p>
+</div>
+{% endif %}
+
 {% if confirm_restart %}
 <div class="panel" style="margin-bottom:16px; border-left:3px solid var(--warn)">
   <strong>Start over?</strong>

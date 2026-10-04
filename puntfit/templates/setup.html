@@ -6,12 +6,16 @@
 
 <form method="post" action="{{ url_for('create') }}" class="panel" style="max-width:520px">
   <h2>New draft</h2>
+  {% if error %}
+  <p class="pill out" style="display:block; padding:8px 12px">{{ error }}</p>
+  {% endif %}
 
   <p>
     <label>Mode<br>
       <select name="mode">
         <option value="mock">Mock draft &mdash; the other seats draft themselves</option>
         <option value="live">Live assistant &mdash; I enter every pick</option>
+        <option value="shared">Shared room &mdash; invite others by link</option>
       </select>
     </label>
   </p>

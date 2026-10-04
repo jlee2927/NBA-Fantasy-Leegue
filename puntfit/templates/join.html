@@ -1,0 +1,38 @@
+{% extends "base.html" %}
+{% block title %}NBA Fantasy Leegue - join the draft{% endblock %}
+{% block body %}
+<h1>You have been invited to a draft</h1>
+<p class="sub">
+  {{ taken }} of {{ teams }} seats taken
+  {%- if started %} &middot; <strong>already under way</strong>{% endif %}
+</p>
+
+<div class="panel" style="max-width:520px">
+  {% if full %}
+    <h2>Every seat is taken</h2>
+    <p class="muted" style="font-size:13px; margin:0">
+      All {{ teams }} seats in this room have been claimed. Whoever set it up
+      would have to start a larger one.
+    </p>
+  {% else %}
+    <h2>Take a seat</h2>
+    <form method="post" action="{{ url_for('join', room_id=room_id) }}">
+      <p>
+        <label>Your name<br>
+          <input name="name" maxlength="40" autocomplete="off"
+                 placeholder="so the room knows who picked">
+        </label>
+      </p>
+      <button class="go" type="submit">Join the draft</button>
+    </form>
+    <p class="muted" style="font-size:12px; margin:12px 0 0">
+      You get the lowest free seat. Seats nobody claims are drafted by
+      simulated managers, so the room will not stall waiting for people who
+      never arrive.
+      {% if started %}
+        Picks already made stand &mdash; you are joining in progress.
+      {% endif %}
+    </p>
+  {% endif %}
+</div>
+{% endblock %}

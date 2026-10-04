@@ -27,7 +27,7 @@ from . import managers as Mg
 from .categories import FORMATS
 from .draft import MAX_EMPHASIS, NEUTRAL_EMPHASIS, DraftState, League
 from .positions import apply_overrides, derive, disagreements, roster_view
-from . import store
+from . import shared, store
 from .fetch_injuries import label as label_injuries
 from .valuation import (last_season, load_projections, stat_headings,
                         stat_table)
@@ -61,6 +61,8 @@ _rooms: dict[str, dict] = {}
 STATE_VERSION = 1
 COOKIE_AGE = 60 * 60 * 12        # a draft is one sitting
 COOKIE = "puntfit_draft_"
+SEAT = "puntfit_seat_"      # which seat a browser holds in a shared room
+SEAT_AGE = 60 * 60 * 24 * 7  # a league draft can be scheduled days out
 
 
 def _fingerprint() -> str:
@@ -77,6 +79,8 @@ def _fingerprint() -> str:
 
 def save(room_id: str, room: dict, response):
     """Write the room back to the browser after anything that changed it."""
+    if room.get("shared"):
+        return response                  # the database already has it
     players, _ = _load()
     where = {name: i for i, name in enumerate(players.index)}
     state: DraftState = room["state"]
@@ -167,9 +171,61 @@ def _load():
     return app.config["players"], app.config["params"]
 
 
+def _shared(room_id: str) -> dict | None:
+    """Rebuild a shared room from the database.
+
+    Always from the rows, never from a cache: other people are picking in the
+    same room, and a copy held in this process would be stale the moment they
+    did. A draft is a few hundred rows, so reading it back is cheap.
+    """
+    if not store.configured():
+        return None
+    try:
+        saved = shared.load(room_id)
+    except Exception:
+        return None                      # database down; solo drafts still work
+    if saved is None:
+        return None
+
+    players, _ = _load()
+    league = League(teams=saved["teams"], rounds=saved["rounds"],
+                    categories=FORMATS[saved["format"]])
+    state = DraftState(players, league)
+    for name in saved["picks"]:
+        try:
+            state.make_pick(name)
+        except (ValueError, KeyError):
+            return None                  # projections moved under the room
+
+    seat = shared.seat_for(saved, request.cookies.get(SEAT + room_id))
+    settings = saved["seats"].get(seat, {}) if seat is not None else {}
+    if seat is not None and settings.get("punts"):
+        state.set_punt(seat, tuple(settings["punts"]))
+    for category, value in (settings.get("emphasis") or {}).items():
+        state.set_emphasis(seat, category, value)
+
+    return {
+        "state": state, "seat": seat, "mode": "shared", "seed": saved["seed"],
+        "format": saved["format"], "rng": random.Random(saved["seed"]),
+        # Seats nobody claimed are played by the simulated managers, so the
+        # room does not stall waiting for someone who was never coming. Every
+        # claimed seat is excluded: a second human being autodrafted for is
+        # the worst failure this feature could have.
+        "strategies": {t: strat for t, strat
+                       in Mg.assign(saved["teams"], -1, saved["seed"]).items()
+                       if not saved["seats"].get(t, {}).get("token")},
+        "build_mode": "manual", "draft_mode": "manual",
+        "view": settings.get("view") or "value",
+        "shared": True, "seats": saved["seats"],
+        "taken": {s: i for s, i in saved["seats"].items() if i["token"]},
+    }
+
+
 def _room(room_id: str) -> dict | None:
-    """The room, from memory if it is there and from the browser if not."""
+    """The room, from memory, then the database, then the browser."""
     room = _rooms.get(room_id)
+    if room is None:
+        room = _shared(room_id)
     if room is None:
         room = restore(room_id)
         if room is not None:
@@ -261,10 +317,27 @@ def create():
     else:
         seat = min(max(int(wanted), 1), teams) - 1
 
-    league = League(teams=teams, rounds=int(form.get("rounds", 13)),
-                    categories=FORMATS[form.get("format", "9cat")])
-    state = DraftState(players, league)
+    rounds = int(form.get("rounds", 13))
+    fmt = form.get("format", "9cat")
     room_id = uuid.uuid4().hex[:10]
+
+    if mode == "shared":
+        if not store.configured():
+            return render_template("setup.html", params=_load()[1],
+                                   formats=list(FORMATS),
+                                   error="Shared rooms need a database. "
+                                         "DATABASE_URL is not set."), 503
+        token = shared.new_token()
+        shared.create(room_id, teams=teams, rounds=rounds, fmt=fmt, seed=seed,
+                      fingerprint=_fingerprint(), host_token=token)
+        shared.claim(room_id, token, form.get("name") or "Host")
+        response = redirect(url_for("room", room_id=room_id))
+        response.set_cookie(SEAT + room_id, token, max_age=SEAT_AGE,
+                            samesite="Lax", httponly=True)
+        return response
+
+    league = League(teams=teams, rounds=rounds, categories=FORMATS[fmt])
+    state = DraftState(players, league)
     room = {
         "state": state, "seat": seat, "mode": mode, "seed": seed,
         "format": form.get("format", "9cat"),
@@ -323,11 +396,36 @@ def auto_build(room: dict) -> bool:
     return True
 
 
+@app.post("/draft/<room_id>/join")
+def join(room_id: str):
+    room = _room(room_id)
+    if room is None or not room.get("shared"):
+        return render_template("gone.html", room_id=room_id), 404
+    token = shared.new_token()
+    seat = shared.claim(room_id, token, (request.form.get("name") or "").strip() or None)
+    if seat is None:
+        return redirect(url_for("room", room_id=room_id, full=1))
+    response = redirect(url_for("room", room_id=room_id))
+    response.set_cookie(SEAT + room_id, token, max_age=SEAT_AGE,
+                        samesite="Lax", httponly=True)
+    return response
+
+
 @app.get("/draft/<room_id>")
 def room(room_id: str):
     room = _room(room_id)
     if room is None:
         return render_template("gone.html", room_id=room_id), 404
+
+    # Whoever opens the invite link without a seat is being invited, not
+    # locked out.
+    if room.get("shared") and room["seat"] is None:
+        return render_template(
+            "join.html", room_id=room_id, room=room,
+            taken=len(room["taken"]), teams=room["state"].league.teams,
+            started=len(room["state"].picks) > 0,
+            full=request.args.get("full") == "1")
+
     state: DraftState = room["state"]
     players, _ = _load()
     seat = room["seat"]
@@ -397,6 +495,9 @@ def room(room_id: str):
         adp=adp, bargains=bargains, has_adp=bool(len(edge)),
         max_emphasis=MAX_EMPHASIS,
         confirm_restart=request.args.get("restart") == "1",
+        room_shared=bool(room.get("shared")),
+        invite=request.url_root.rstrip("/") + url_for("room", room_id=room_id),
+        seats_taken=len(room.get("taken", {})),
         my_turn=state.on_the_clock == seat,
         log=list(reversed(state.picks)),
     )
@@ -445,14 +546,46 @@ def results(room_id: str):
     )
 
 
+def _persist(room_id: str, room: dict, start: int) -> bool:
+    """Write picks from `start` onward to the database."""
+    for p in room["state"].picks[start:]:
+        if not shared.add_pick(room_id, p.number, p.team, p.player):
+            return False
+    return True
+
+
 @app.post("/draft/<room_id>/pick")
 def pick(room_id: str):
     room = _room(room_id)
     if room is None:
         return render_template("gone.html", room_id=room_id), 404
+    state: DraftState = room["state"]
     player = request.form.get("player", "").strip()
+
+    if room.get("shared"):
+        if room["seat"] is None:
+            return redirect(url_for("room", room_id=room_id))
+        if state.on_the_clock != room["seat"]:
+            return redirect(url_for("room", room_id=room_id,
+                                    error="it is not your pick"))
+        number = len(state.picks)
+        try:
+            state.make_pick(player)
+        except ValueError as e:
+            return redirect(url_for("room", room_id=room_id, error=str(e)))
+        # The database decides the race, not this process. A unique constraint
+        # on (room_id, player) and a primary key on (room_id, number) mean the
+        # loser of a simultaneous pick finds out here rather than ending up
+        # with somebody else's player.
+        if not shared.add_pick(room_id, number, room["seat"], player):
+            return redirect(url_for("room", room_id=room_id,
+                                    error=f"somebody just took {player}"))
+        _advance(room)
+        _persist(room_id, room, number + 1)
+        return redirect(url_for("room", room_id=room_id))
+
     try:
-        room["state"].make_pick(player)
+        state.make_pick(player)
     except ValueError as e:
         return save(room_id, room, redirect(url_for("room", room_id=room_id, error=str(e))))
     _advance(room)

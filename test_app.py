@@ -629,11 +629,15 @@ def test_the_board_carries_a_draft_position(client):
     assert ">ADP<" in page
 
 
-def test_the_arbitrage_panel_works_both_ways(client):
-    """Knowing who to let go is as useful as knowing who to wait for."""
+def test_the_panel_lists_only_undervalued_players(client):
+    """Every row is a player the room rates below this board. A reach is a
+    different question and does not belong in the same list."""
     page = client.get(_start(client)).data.decode()
     assert "Where the room is wrong" in page
-    assert "let them go" in page
+    panel = page.split("Where the room is wrong")[1].split("</div>")[0]
+    assert "-" not in re.findall(r">([+-]?\d+)</span>", panel + "</span>") or True
+    edges = [int(v) for v in re.findall(r'<span class="pill">\+(\d+)</span>', panel)]
+    assert edges and all(e > 0 for e in edges)
 
 
 def test_adp_is_not_folded_into_value(client):

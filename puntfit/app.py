@@ -367,12 +367,10 @@ def room(room_id: str):
         return [{"player": n, "rank": int(our_rank[n]), "adp": int(adp[n]),
                  "edge": int(edge[n])} for n in names]
 
-    ordered = edge.sort_values(ascending=False)
-    bargains = gap(ordered.head(6).index)
-    # The other half of the trade. A player the room takes well before we
-    # would is one to let go, which is as useful as knowing who to wait for
-    # and much easier to get wrong in the moment.
-    reaches = gap(ordered.tail(4).index[::-1])
+    # Undervalued only: players the room rates well below this board, which
+    # are the ones worth waiting on. A list of players to avoid is a longer
+    # answer to a question nobody asks mid-pick.
+    bargains = gap(edge[edge > 0].sort_values(ascending=False).head(10).index)
 
     cats = [c for c in board.columns if c != "total"]
     view = room.get("view", "value")
@@ -396,7 +394,7 @@ def room(room_id: str):
         weights=state.weights(seat) if mine else None,
         auto_weights=state.category_weights(seat) if mine else None,
         emphasis=state.emphasis.get(seat, {}), slots=slots,
-        adp=adp, bargains=bargains, reaches=reaches, has_adp=bool(len(edge)),
+        adp=adp, bargains=bargains, has_adp=bool(len(edge)),
         max_emphasis=MAX_EMPHASIS,
         confirm_restart=request.args.get("restart") == "1",
         my_turn=state.on_the_clock == seat,

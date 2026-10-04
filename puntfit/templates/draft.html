@@ -260,19 +260,6 @@
         </tr>
         {% endfor %}
       </table>
-      <p class="muted" style="font-size:11px; margin:12px 0 6px">
-        And the other way &mdash; taken well before we would, so let them go.
-      </p>
-      <table>
-        {% for b in reaches %}
-        <tr>
-          <td>{{ b.player }}</td>
-          <td class="n muted">{{ b.rank }}</td>
-          <td class="n muted">{{ b.adp }}</td>
-          <td class="n"><span class="pill out">{{ b.edge }}</span></td>
-        </tr>
-        {% endfor %}
-      </table>
       {% else %}
       <p class="muted" style="font-size:12px; margin:0">
         No draft positions loaded. Run

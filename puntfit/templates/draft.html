@@ -79,6 +79,7 @@
       <option value="value" {% if view == 'value' %}selected{% endif %}>Standardised value</option>
       <option value="stats" {% if view == 'stats' %}selected{% endif %}>Projected stats</option>
       <option value="both" {% if view == 'both' %}selected{% endif %}>Both</option>
+      <option value="last" {% if view == 'last' %}selected{% endif %}>{{ last_label }} actual</option>
     </select>
   </label>
   <span class="muted" style="font-size:12px">
@@ -173,7 +174,7 @@
       <thead><tr>
         <th></th><th>Player</th><th>Team</th><th>Pos</th>
         <th class="n">Value</th>
-        {% if view == 'stats' %}
+        {% if view in ('stats', 'last') %}
           {% for h in stat_headings %}<th class="n">{{ h }}</th>{% endfor %}
           <th class="n">g</th><th class="n">m/g</th>
         {% elif view == 'both' %}
@@ -205,7 +206,7 @@
           <td class="muted">{{ p.team }}</td>
           <td class="muted">{{ p.pos }}</td>
           <td class="n"><strong>{{ '%.2f'|format(row.total) }}</strong></td>
-          {% if view == 'stats' %}
+          {% if view in ('stats', 'last') %}
             {% set s = stats.loc[name] %}
             {% for c in cats %}<td class="n muted">{{ s[c] }}</td>{% endfor %}
             <td class="n muted">{{ s['g'] }}</td><td class="n muted">{{ s['m/g'] }}</td>

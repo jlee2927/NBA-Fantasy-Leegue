@@ -29,7 +29,8 @@ from .draft import MAX_EMPHASIS, NEUTRAL_EMPHASIS, DraftState, League
 from .positions import apply_overrides, derive, disagreements, roster_view
 from . import store
 from .fetch_injuries import label as label_injuries
-from .valuation import load_projections, stat_headings, stat_table
+from .valuation import (last_season, load_projections, stat_headings,
+                        stat_table)
 
 # The landing page is the same files GitHub Pages serves, not a copy of them,
 # so the two can never drift apart.
@@ -38,6 +39,7 @@ DOCS = Path(__file__).resolve().parent.parent / "docs"
 PROJECTIONS = Path("data/marcel_projections.json")
 PROSPECTS = Path("data/prospect_projections.json")
 INJURIES = Path("data/injuries.csv")
+SEASONS = Path("data/nba_seasons.parquet")
 POSITIONS = Path("data/positions_manual.csv")
 
 app = Flask(__name__)
@@ -146,6 +148,11 @@ def _load():
             df[col] = df[col].where(df[col].notna(), "")
         app.config["players"], app.config["params"] = df, params
         app.config["positions"] = apply_overrides(derive(df), df, POSITIONS)
+        # Season labels are the ending year, so 2026-2027 projections are
+        # compared against season 2026, the year just finished.
+        finished = int(str(params.get("target_season", "0-0")).split("-")[0])
+        app.config["last_season"] = last_season(SEASONS, df, finished)
+        app.config["last_label"] = f"{finished - 1}-{str(finished)[2:]}"
     return app.config["players"], app.config["params"]
 
 
@@ -342,11 +349,18 @@ def room(room_id: str):
     cats = [c for c in board.columns if c != "total"]
     view = room.get("view", "value")
     stats = stat_table(detail, cats) if view in ("stats", "both") else None
+    past = app.config.get("last_season")
+    if view == "last" and past is not None:
+        stats = stat_table(past.loc[board.index], cats)
+    elif view == "last":
+        view = "stats"                 # no history available; show the forecast
+        stats = stat_table(detail, cats)
 
     return render_template(
         "draft.html", room_id=room_id, state=state, seat=seat, mode=room["mode"],
         board=board, detail=detail, cats=cats,
         view=view, stats=stats, stat_headings=stat_headings(cats),
+        last_label=app.config.get("last_label", "last season"),
         mine=mine, totals=totals, builds=builds, auto=auto, search=search,
         matches=len(ranked), pool=len(state.available),
         build_mode=room["build_mode"], draft_mode=room["draft_mode"],
@@ -398,7 +412,7 @@ def settings(room_id: str):
         value = request.form.get(key)
         if value in {"auto", "manual"}:
             room[key] = value
-    if request.form.get("view") in {"value", "stats", "both"}:
+    if request.form.get("view") in {"value", "stats", "both", "last"}:
         room["view"] = request.form["view"]
     _advance(room)
     return save(room_id, room, redirect(url_for("room", room_id=room_id)))

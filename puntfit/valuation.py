@@ -189,6 +189,47 @@ def stat_table(df: pd.DataFrame, cats) -> pd.DataFrame:
     return out
 
 
+def last_season(seasons: Path, players: pd.DataFrame,
+                season: int) -> pd.DataFrame | None:
+    """What each player actually did last year, shaped like a projection.
+
+    A projection is easier to trust beside the season it came from. Seeing
+    that a player is forecast 25.5 points off 27.7 last year says more about
+    the forecast than the forecast alone does.
+
+    The frame deliberately carries the same column names as the projection
+    set, so the formatter that renders one renders the other with no special
+    case. Joined on athlete_id rather than name, because two players have
+    shared a name before and will again.
+    """
+    if not Path(seasons).exists():
+        return None
+    df = pd.read_parquet(seasons)
+    past = df[df.season == season]
+    if past.empty:
+        return None
+
+    past = past.set_index("athlete_id")
+    games = past.g.replace(0, pd.NA)
+    out = pd.DataFrame(index=past.index)
+    for stat in ("pts", "reb", "ast", "stl", "blk", "tov", "tpm",
+                 "fgm", "fga", "ftm", "fta"):
+        out[stat + "_pg"] = past[stat] / games
+    out["fg_pct"] = past.fgm / past.fga.replace(0, pd.NA)
+    out["ft_pct"] = past.ftm / past.fta.replace(0, pd.NA)
+    out["proj_g"] = past.g
+    out["proj_mpg"] = past["min"] / games
+
+    # Back onto the projection's own index, so a player who did not play last
+    # season simply has no row and renders as dashes.
+    ids = players.get("player")
+    if ids is None:
+        return None
+    aligned = out.reindex(ids.values)
+    aligned.index = players.index
+    return aligned
+
+
 def stat_headings(cats) -> list[str]:
     return [STAT_VIEW[c][1] for c in cats]
 

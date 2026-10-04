@@ -377,6 +377,33 @@ def test_drafting_puts_the_player_in_a_slot(client):
     assert "13 starting slot" not in page
 
 
+def test_the_board_can_show_last_seasons_actuals(client):
+    """A forecast is easier to judge beside the season it came from."""
+    room = _start(client)
+    client.post(f"{room}/settings", data={"view": "last"})
+    header = _board_header(client, room)
+    assert ">p/g<" in header and ">g<" in header
+
+
+def test_last_season_differs_from_the_projection(client):
+    """If the two views rendered the same numbers, one of them is wrong."""
+    room = _start(client)
+    client.post(f"{room}/settings", data={"view": "stats"})
+    forecast = client.get(room).data.decode().split("Best available")[1]
+    client.post(f"{room}/settings", data={"view": "last"})
+    actual = client.get(room).data.decode().split("Best available")[1]
+    assert forecast != actual
+
+
+def test_a_player_with_no_history_renders_a_dash(client):
+    """Rookies have no last season. They should not show a zero, which would
+    read as a projection of nothing rather than an absence of data."""
+    room = _start(client)
+    client.post(f"{room}/settings", data={"view": "last"})
+    body = client.get(room).data.decode()
+    assert "nan" not in body.lower().split("best available")[1]
+
+
 def test_a_confirmed_build_drops_those_columns(client):
     room = _start(client)
     client.post(f"{room}/pick", data={"player": _first_player(client, room)})

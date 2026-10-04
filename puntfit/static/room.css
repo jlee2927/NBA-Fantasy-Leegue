@@ -113,12 +113,18 @@ h2 {
   background: var(--panel); backdrop-filter: blur(11px);
 }
 
-.grid { display: grid; grid-template-columns: 1fr 340px; gap: 16px; align-items: start; }
+/* The board gets the full width and everything else sits under it. A board
+   squeezed into two thirds of the window hides category columns behind a
+   scroll that the sidebar was not worth paying for. */
+.board-row { margin-bottom: 16px; }
+.panels {
+  display: grid; grid-template-columns: repeat(auto-fit, minmax(290px, 1fr));
+  gap: 16px; align-items: start;
+}
 /* Grid tracks refuse to shrink below their content by default, so without
    this the wide board pushes the whole page sideways instead of scrolling
    inside its own panel. */
-.grid > * { min-width: 0; }
-@media (max-width: 900px) { .grid { grid-template-columns: 1fr; } }
+.board-row > *, .panels > * { min-width: 0; }
 
 /* --- controls ---------------------------------------------------------- */
 button {

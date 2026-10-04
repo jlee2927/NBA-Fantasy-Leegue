@@ -153,7 +153,7 @@
 </div>
 {% endif %}
 
-<div class="grid">
+<div class="board-row">
   <div class="panel">
     <div style="display:flex; justify-content:space-between; align-items:baseline;
                 gap:12px; flex-wrap:wrap">
@@ -241,8 +241,10 @@
     {% endif %}
   </div>
 
-  <div>
-    <div class="panel" style="margin-bottom:16px">
+</div>
+
+<div class="panels">
+    <div class="panel">
       <h2>Where the room is wrong</h2>
       {% if has_adp %}
       <p class="muted" style="font-size:11px; margin:-4px 0 8px">
@@ -269,7 +271,7 @@
       {% endif %}
     </div>
 
-    <div class="panel" style="margin-bottom:16px">
+    <div class="panel">
       <h2>Roster &mdash; {{ slots.filled }}/{{ slots.total }}{% if slots.unplaced %} &middot; {{ slots.unplaced }} unplaced{% endif %}</h2>
       <table class="roster">
         {% for r in slots.rows %}
@@ -301,7 +303,7 @@
       </p>
     </div>
 
-    <div class="panel" style="margin-bottom:16px">
+    <div class="panel">
       <h2>Your roster ({{ mine|length }})</h2>
       {% if mine %}
         <table>
@@ -369,6 +371,6 @@
       </div>
       {% else %}<p class="muted">No picks yet.</p>{% endif %}
     </div>
-  </div>
+
 </div>
 {% endblock %}

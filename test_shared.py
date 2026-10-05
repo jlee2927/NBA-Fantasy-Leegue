@@ -43,6 +43,7 @@ def db(monkeypatch):
     monkeypatch.setattr(A.shared, "load", fake.load)
     monkeypatch.setattr(A.shared, "add_pick", fake.add_pick)
     monkeypatch.setattr(A.shared, "claim", lambda rid, tok, name=None: 0)
+    monkeypatch.setattr(A.shared, "update_seat", lambda rid, seat, **kw: None)
     return fake
 
 
@@ -236,3 +237,60 @@ def test_leaving_a_shared_room_does_not_end_it_for_everyone(client, db):
     assert db.picks == ["Nikola Jokic"]      # the draft is untouched
     assert any("puntfit_seat_sharedroom=;" in h
                for h in r.headers.getlist("Set-Cookie"))
+
+
+# ---------------------------------------------------------------- slow draft
+def _slow(db, waiting, hours=8):
+    """Re-point the module the app actually calls, not just the fake.
+
+    The fixture binds A.shared.load to db.load once; replacing the attribute
+    on db afterwards would leave the app still calling the original.
+    """
+    base = db.load
+    A.shared.load = lambda rid: {**base(rid), "pace": "slow",
+                                 "pick_hours": hours, "waiting": waiting}
+    return db
+
+
+def test_a_slow_draft_waits_rather_than_drafting_for_you(client, db):
+    """The whole point of the format: hours to think, and nobody picks for
+    you until they are up. Seat 0 is a bot here and must not move."""
+    _slow(db, waiting=60)                       # one minute in
+    db.seats[1]["token"] = "mine"
+    client.set_cookie("puntfit_seat_sharedroom", "mine")
+    client.get("/draft/sharedroom")
+    assert db.picks == []
+
+
+def test_a_slow_draft_moves_on_once_the_clock_runs_out(client, db):
+    """Otherwise one person going away for a weekend stalls eleven others."""
+    _slow(db, waiting=9 * 3600)                 # an hour past an eight-hour clock
+    db.seats[1]["token"] = "mine"
+    client.set_cookie("puntfit_seat_sharedroom", "mine")
+    client.post("/draft/sharedroom/settings", data={"view": "value"})
+    assert db.picks, "the bot seat should have been drafted for"
+
+
+def test_a_slow_draft_says_how_long_is_left(client, db):
+    _slow(db, waiting=3600 + 600)               # one hour ten minutes in
+    db.seats[1]["token"] = "mine"
+    client.set_cookie("puntfit_seat_sharedroom", "mine")
+    page = client.get("/draft/sharedroom").data.decode()
+    assert "6h 50m left" in page
+
+
+def test_a_slow_draft_does_not_poll_every_few_seconds(client, db):
+    """Picks are hours apart. Asking every 2.5 seconds would be twelve
+    hundred requests between them."""
+    _slow(db, waiting=60)
+    db.seats[1]["token"] = "mine"
+    client.set_cookie("puntfit_seat_sharedroom", "mine")
+    page = client.get("/draft/sharedroom").data.decode()
+    assert "var every = 30000;" in page
+
+
+def test_a_live_shared_room_still_polls_quickly(client, db):
+    db.seats[1]["token"] = "mine"
+    client.set_cookie("puntfit_seat_sharedroom", "mine")
+    page = client.get("/draft/sharedroom").data.decode()
+    assert "var every = 2500;" in page

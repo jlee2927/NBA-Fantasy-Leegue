@@ -208,6 +208,7 @@ def _shared(room_id: str) -> dict | None:
         state.set_emphasis(seat, category, value)
 
     return {
+        "id": room_id,
         "state": state, "seat": seat, "mode": "shared", "seed": saved["seed"],
         "format": saved["format"], "rng": random.Random(saved["seed"]),
         # Seats nobody claimed are played by the simulated managers, so the
@@ -220,6 +221,9 @@ def _shared(room_id: str) -> dict | None:
         "build_mode": "manual", "draft_mode": "manual",
         "view": settings.get("view") or "value",
         "shared": True, "seats": saved["seats"],
+        "pace": saved.get("pace", "live"),
+        "pick_hours": saved.get("pick_hours", 8),
+        "waiting": saved.get("waiting", 0.0),
         "taken": {s: i for s, i in saved["seats"].items() if i["token"]},
     }
 
@@ -324,15 +328,18 @@ def create():
     fmt = form.get("format", "9cat")
     room_id = uuid.uuid4().hex[:10]
 
-    if mode == "shared":
+    if mode in ("shared", "slow"):
         if not store.configured():
             return render_template("setup.html", params=_load()[1],
                                    formats=list(FORMATS),
                                    error="Shared rooms need a database. "
                                          "DATABASE_URL is not set."), 503
         token = shared.new_token()
+        pace = "slow" if mode == "slow" else "live"
+        hours = min(max(int(form.get("pick_hours") or 8), 1), 72)
         shared.create(room_id, teams=teams, rounds=rounds, fmt=fmt, seed=seed,
-                      fingerprint=_fingerprint(), host_token=token)
+                      fingerprint=_fingerprint(), host_token=token,
+                      pace=pace, pick_hours=hours)
         shared.claim(room_id, token, form.get("name") or "Host")
         response = redirect(url_for("room", room_id=room_id))
         response.set_cookie(SEAT + room_id, token, max_age=SEAT_AGE,
@@ -367,10 +374,34 @@ def _advance(room: dict) -> None:
     Simulated seats always pick themselves. The manager's own seat only picks
     itself when they have asked it to, which is what lets a whole mock run
     through to the end.
+
+    In a shared room whatever it picks is written to the database here rather
+    than by the caller. Four routes call this, and persisting at each of them
+    meant one was missed: bot picks made while changing a setting happened on
+    screen and never reached the rows, so the next person to load the room saw
+    a draft that had gone backwards.
     """
+    before = len(room["state"].picks)
+    try:
+        _advance_locally(room)
+    finally:
+        if room.get("shared") and room.get("id"):
+            _persist(room["id"], room, before)
+
+
+def _advance_locally(room: dict) -> None:
     state: DraftState = room["state"]
     seat, auto = room["seat"], room["draft_mode"] == "auto"
     auto_build(room)       # independent of who is doing the drafting
+
+    # A slow draft gives every seat hours to think, so nothing is drafted for
+    # anybody until that time has run out. Checked here rather than by a
+    # scheduler: the deadline only matters when somebody is looking, and this
+    # is where looking happens.
+    if room.get("pace") == "slow":
+        if room.get("waiting", 0) < room.get("pick_hours", 8) * 3600:
+            return
+
     for _ in range(state.league.total_picks + 1):
         if state.complete:
             return
@@ -523,6 +554,11 @@ def room(room_id: str):
         max_emphasis=MAX_EMPHASIS,
         confirm_restart=request.args.get("restart") == "1",
         room_shared=bool(room.get("shared")),
+        pace=room.get("pace", "live"),
+        pick_hours=room.get("pick_hours", 8),
+        # How long the seat on the clock has left, as the people waiting on it
+        # would say it rather than in seconds.
+        clock_left=_time_left(room),
         invite=request.url_root.rstrip("/") + url_for("room", room_id=room_id),
         seats_taken=len(room.get("taken", {})),
         my_turn=state.on_the_clock == seat,
@@ -577,6 +613,19 @@ def results(room_id: str):
     )
 
 
+def _time_left(room: dict) -> str | None:
+    """What is left of a slow draft's clock, in words."""
+    if room.get("pace") != "slow" or room["state"].complete:
+        return None
+    left = room.get("pick_hours", 8) * 3600 - room.get("waiting", 0)
+    if left <= 0:
+        return "time is up"
+    hours, minutes = int(left // 3600), int(left % 3600 // 60)
+    if hours:
+        return f"{hours}h {minutes}m left" if minutes else f"{hours}h left"
+    return f"{minutes}m left" if minutes else "under a minute left"
+
+
 def _persist(room_id: str, room: dict, start: int) -> bool:
     """Write picks from `start` onward to the database."""
     for p in room["state"].picks[start:]:
@@ -612,7 +661,6 @@ def pick(room_id: str):
             return redirect(url_for("room", room_id=room_id,
                                     error=f"somebody just took {player}"))
         _advance(room)
-        _persist(room_id, room, number + 1)
         return redirect(url_for("room", room_id=room_id))
 
     try:
@@ -710,10 +758,7 @@ def punt(room_id: str):
         state.clear_punt(room["seat"])   # "no build" is a legitimate choice
     if room.get("shared") and room["seat"] is not None:
         shared.update_seat(room_id, room["seat"], punts=chosen)
-    before = len(state.picks)
     _advance(room)
-    if room.get("shared"):
-        _persist(room_id, room, before)
     return save(room_id, room, redirect(url_for("room", room_id=room_id)))
 
 

@@ -27,8 +27,15 @@
   </div>
   <p class="muted" style="font-size:12px; margin:10px 0 0">
     {{ seats_taken }} of {{ state.league.teams }} seats taken. Anyone opening
-    this link takes the next free one; the rest are drafted by simulated
-    managers, so a short league still finishes.
+    this link takes the next free one.
+    {% if pace == 'slow' %}
+      Everybody gets {{ pick_hours }} hour{{ '' if pick_hours == 1 else 's' }}
+      to make each pick, and is only drafted for once that runs out &mdash; so
+      the draft can run over days without anybody sitting watching it.
+    {% else %}
+      The rest are drafted by simulated managers, so a short league still
+      finishes.
+    {% endif %}
   </p>
 </div>
 {% endif %}
@@ -78,7 +85,11 @@
   <div class="panel clock {% if my_turn %}mine{% endif %}" style="margin-bottom:16px">
     {% if my_turn %}
       <strong>Your pick.</strong>
-      <span class="muted">Team {{ seat + 1 }} is on the clock.</span>
+      <span class="muted">
+        Team {{ seat + 1 }} is on the clock.
+        {%- if clock_left %} You have {{ clock_left }}; after that the draft
+        moves on without you.{% endif %}
+      </span>
     {% else %}
       <strong>Team {{ state.on_the_clock + 1 }} is on the clock.</strong>
       {% if mode == 'live' %}
@@ -88,7 +99,10 @@
           at&nbsp;{{ seat + 1 }}.
         </span>
       {% else %}
-        <span class="muted">Waiting on them.</span>
+        <span class="muted">
+          Waiting on them.{% if clock_left %} {{ clock_left|capitalize }} on
+          their clock.{% endif %}
+        </span>
       {% endif %}
     {% endif %}
   </div>
@@ -418,7 +432,10 @@
   if (mine || done) return;
 
   var url = {{ url_for('pulse', room_id=room_id)|tojson }};
-  var timer = setInterval(tick, 2500);
+  // A slow draft moves in hours, so asking every few seconds would be twelve
+  // hundred pointless requests between picks.
+  var every = {{ 30000 if pace == 'slow' else 2500 }};
+  var timer = setInterval(tick, every);
 
   async function tick() {
     if (document.hidden) return;            // a background tab is not watching

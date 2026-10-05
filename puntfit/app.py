@@ -24,7 +24,7 @@ from flask import (Flask, make_response, redirect, render_template, request,
                    send_from_directory, url_for)
 
 from . import managers as Mg
-from .categories import FORMATS
+from .categories import FORMATS, label as cat_label
 from .draft import MAX_EMPHASIS, NEUTRAL_EMPHASIS, DraftState, League
 from .positions import apply_overrides, derive, disagreements, roster_view
 from . import shared, store
@@ -44,6 +44,9 @@ POSITIONS = Path("data/positions_manual.csv")
 ADP = Path("data/adp.csv")
 
 app = Flask(__name__)
+# Categories are keyed by their column name and shown by their fantasy name.
+app.jinja_env.filters["cat"] = cat_label
+app.jinja_env.filters["cats"] = lambda seq: [cat_label(c) for c in seq]
 app.config["PROJECTIONS"] = PROJECTIONS
 
 BOARD_SIZE = 40

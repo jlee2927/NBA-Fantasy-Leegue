@@ -86,6 +86,15 @@ CREATE TABLE IF NOT EXISTS picks (
 -- Rooms are cheap to keep but not worth keeping forever; this makes the
 -- sweep of abandoned ones an index scan rather than a table scan.
 CREATE INDEX IF NOT EXISTS rooms_updated_at ON rooms (updated_at);
+
+-- Added after the first rooms existed. CREATE TABLE IF NOT EXISTS does
+-- nothing to a table already there, so new columns need their own statement.
+--
+-- A slow draft runs over days rather than minutes: everybody gets hours to
+-- think, and a seat is only drafted for once its clock has run out. pick_hours
+-- is how long that is.
+ALTER TABLE rooms ADD COLUMN IF NOT EXISTS pace TEXT NOT NULL DEFAULT 'live';
+ALTER TABLE rooms ADD COLUMN IF NOT EXISTS pick_hours INTEGER NOT NULL DEFAULT 8;
 """
 
 

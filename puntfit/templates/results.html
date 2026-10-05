@@ -37,7 +37,7 @@
       <tbody>
       {% for r in rows %}
         <tr class="{% if r.punted %}punted{% endif %}">
-          <td><strong>{{ r.cat }}</strong></td>
+          <td><strong>{{ r.cat|cat }}</strong></td>
           <td class="n {{ 'good' if r.total >= 0 else 'bad' }}">{{ '%+.1f'|format(r.total) }}</td>
           <td class="n muted">{{ r.rank }} / {{ state.league.teams }}</td>
           <td class="n muted">{{ '%.0f'|format(r.win * 100) }}%</td>
@@ -58,7 +58,7 @@
       <h2>The build</h2>
       {% if punted %}
         <p style="margin:0 0 10px; font-size:13px">
-          You punted <strong>{{ punted|join(' + ') }}</strong> and contested the
+          You punted <strong>{{ punted|cats|join(' + ') }}</strong> and contested the
           other {{ contested }}.
         </p>
         <p class="muted" style="font-size:12px; margin:0 0 10px">
@@ -68,7 +68,7 @@
         <table>
           {% for r in rows if r.punted %}
           <tr>
-            <td>{{ r.cat }}</td>
+            <td>{{ r.cat|cat }}</td>
             <td class="n muted">{{ r.rank }} / {{ state.league.teams }}</td>
             <td class="n">
               {% if r.rank > state.league.teams // 2 %}
@@ -114,7 +114,7 @@
   <table>
     <thead><tr>
       <th>Team</th>
-      {% for c in standings.columns %}<th class="n">{{ c }}</th>{% endfor %}
+      {% for c in standings.columns %}<th class="n">{{ c|cat }}</th>{% endfor %}
       <th class="n">Cats</th>
     </tr></thead>
     <tbody>

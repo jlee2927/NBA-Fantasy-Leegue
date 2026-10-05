@@ -32,12 +32,16 @@ def new_token() -> str:
 
 
 def create(room_id: str, *, teams: int, rounds: int, fmt: str, seed: int,
-           fingerprint: str, host_token: str) -> None:
+           fingerprint: str, host_token: str, pace: str = "live",
+           pick_hours: int = 8) -> None:
+    store.ensure_schema()
     with store.connection() as conn:
         conn.execute(
             "INSERT INTO rooms (id, fingerprint, teams, rounds, format, mode,"
-            " seed, host_token) VALUES (%s, %s, %s, %s, %s, 'shared', %s, %s)",
-            (room_id, fingerprint, teams, rounds, fmt, seed, host_token))
+            " seed, host_token, pace, pick_hours)"
+            " VALUES (%s, %s, %s, %s, %s, 'shared', %s, %s, %s, %s)",
+            (room_id, fingerprint, teams, rounds, fmt, seed, host_token,
+             pace, pick_hours))
         # executemany is a cursor method in psycopg 3, not a connection one.
         with conn.cursor() as cur:
             cur.executemany(
@@ -49,7 +53,11 @@ def load(room_id: str) -> dict | None:
     """Everything needed to rebuild the room, in one round trip per table."""
     with store.connection() as conn:
         row = conn.execute(
-            "SELECT teams, rounds, format, seed, fingerprint, host_token"
+            "SELECT teams, rounds, format, seed, fingerprint, host_token,"
+            " pace, pick_hours,"
+            # How long the seat on the clock has had. Measured from the last
+            # pick, which is when it came on the clock.
+            " EXTRACT(EPOCH FROM (now() - GREATEST(updated_at, created_at)))"
             " FROM rooms WHERE id = %s", (room_id,)).fetchone()
         if row is None:
             return None
@@ -60,10 +68,12 @@ def load(room_id: str) -> dict | None:
             "SELECT seat, token, name, punts, emphasis, view FROM seats"
             " WHERE room_id = %s ORDER BY seat", (room_id,)).fetchall()
 
-    teams, rounds, fmt, seed, fingerprint, host_token = row
+    (teams, rounds, fmt, seed, fingerprint, host_token, pace, pick_hours,
+     waiting) = row
     return {
         "teams": teams, "rounds": rounds, "format": fmt, "seed": seed,
         "fingerprint": fingerprint, "host_token": host_token,
+        "pace": pace, "pick_hours": pick_hours, "waiting": float(waiting or 0),
         "picks": [p[2] for p in picks],
         "seats": {s[0]: {"token": s[1], "name": s[2], "punts": tuple(s[3] or ()),
                          "emphasis": s[4] or {}, "view": s[5]} for s in seats},

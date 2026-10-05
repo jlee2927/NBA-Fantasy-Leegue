@@ -23,6 +23,16 @@ STAT_VIEW = {
     "tov": ("tov_pg",  "to/g", 1),
 }
 
+# What a category is called on screen. The keys stay as they are: they name
+# columns in the projection set, values in saved punts and fields in stored
+# rooms, so renaming one would mean rewriting data rather than a label.
+CAT_LABEL = {"tpm": "3PM"}
+
+
+def label(category: str) -> str:
+    return CAT_LABEL.get(category, category)
+
+
 NINE_CAT = ("fg", "ft", "tpm", "pts", "reb", "ast", "stl", "blk", "tov")
 EIGHT_CAT = tuple(c for c in NINE_CAT if c != "tov")
 

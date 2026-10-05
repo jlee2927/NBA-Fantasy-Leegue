@@ -20,7 +20,7 @@ from dataclasses import dataclass, field
 import numpy as np
 import pandas as pd
 
-from .categories import NINE_CAT
+from .categories import NINE_CAT, label as cat_label
 from .valuation import DEFAULT_POOL, punt_value, value_players
 
 # How far from parity a category has to be before it stops being worth
@@ -279,7 +279,8 @@ class DraftState:
         rows = []
         for punt in itertools.combinations(self.league.categories, n_punts):
             z = self.values(punt)
-            rows.append({"punt": punt, "label": "+".join(punt),
+            rows.append({"punt": punt,
+                         "label": "+".join(cat_label(c) for c in punt),
                          "value": z.loc[player, "total"],
                          "rank": z.index.get_loc(player) + 1})
         return (pd.DataFrame(rows).sort_values("value", ascending=False)

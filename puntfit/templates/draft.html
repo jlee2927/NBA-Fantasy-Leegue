@@ -7,7 +7,7 @@
   <p class="sub" style="margin:0">
     {{ mode }} draft &middot; you are team {{ seat + 1 }} of {{ state.league.teams }}
     {%- if state.punts.get(seat) %} &middot; punting
-      <span class="pill">{{ state.punts[seat]|join(' + ') }}</span>
+      <span class="pill">{{ state.punts[seat]|cats|join(' + ') }}</span>
     {%- endif %}
     &middot; <a href="{{ url_for('results', room_id=room_id) }}">standings</a>
     &middot; <a href="{{ url_for('room', room_id=room_id, restart=1) }}">start over</a>
@@ -212,10 +212,10 @@
           {% for h in stat_headings %}<th class="n">{{ h }}</th>{% endfor %}
           <th class="n">g</th><th class="n">m/g</th>
         {% elif view == 'both' %}
-          {% for c in cats %}<th class="n">{{ c }}</th>{% endfor %}
+          {% for c in cats %}<th class="n">{{ c|cat }}</th>{% endfor %}
           <th class="n">g</th><th class="n">m/g</th>
         {% else %}
-          {% for c in cats %}<th class="n">{{ c }}</th>{% endfor %}
+          {% for c in cats %}<th class="n">{{ c|cat }}</th>{% endfor %}
         {% endif %}
         <th></th>
       </tr></thead>
@@ -352,7 +352,7 @@
             </tr></thead>
             {% for c in cats %}
             <tr>
-              <td>{{ c }}</td>
+              <td>{{ c|cat }}</td>
               <td class="n {{ 'good' if totals[c].sum() >= 0 else 'bad' }}">
                 {{ '%+.1f'|format(totals[c].sum()) }}
               </td>

@@ -560,8 +560,9 @@ def test_an_oversized_build_posted_directly_is_trimmed(client):
     client.post(f"{room}/punt", data={"build": "tov,ft,fg,blk,reb,ast"})
     page = client.get(room).data.decode()
     header = page.split("Best available")[1].split("</thead>")[0]
+    from puntfit.categories import label
     kept = [c for c in ("fg", "ft", "tpm", "pts", "reb", "ast", "stl", "blk", "tov")
-            if f">{c}<" in header]
+            if f">{label(c)}<" in header]
     assert len(kept) >= 5
 
 

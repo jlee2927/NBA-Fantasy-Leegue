@@ -16,6 +16,7 @@ from __future__ import annotations
 import hashlib
 import json
 import random
+import threading
 import uuid
 from pathlib import Path
 
@@ -25,7 +26,8 @@ from flask import (Flask, make_response, redirect, render_template, request,
 
 from . import managers as Mg
 from .categories import FORMATS, label as cat_label
-from .draft import MAX_EMPHASIS, NEUTRAL_EMPHASIS, DraftState, League
+from .draft import (MAX_EMPHASIS, NEUTRAL_EMPHASIS, DraftState, League,
+                    warm_values)
 from .positions import apply_overrides, derive, disagreements, roster_view
 from . import shared, store
 from .fetch_injuries import label as label_injuries
@@ -171,7 +173,25 @@ def _load():
             adp = df.player.map(by_id)
         app.config["adp"] = adp
         app.config["last_label"] = f"{finished - 1}-{str(finished)[2:]}"
+        _warm_in_background(df)
     return app.config["players"], app.config["params"]
+
+
+def _warm_in_background(projections) -> None:
+    """Fill the punt tables while the first request is being answered.
+
+    On a thread because none of it is needed to serve that request, and the
+    person who happens to arrive first should not be the one who pays for
+    every later chooser. Daemon so it cannot hold up a shutdown, and failures
+    are swallowed: an unwarmed cache is slow, not broken.
+    """
+    def work():
+        try:
+            warm_values(projections, FORMATS.values())
+        except Exception:
+            pass
+
+    threading.Thread(target=work, name="warm-values", daemon=True).start()
 
 
 def _shared(room_id: str) -> dict | None:

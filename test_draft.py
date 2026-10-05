@@ -270,3 +270,26 @@ def test_an_empty_roster_has_nothing_to_lean_on(draft):
     assert list(draft.recommend(0, limit=5, contest=True).index) == \
            list(draft.recommend(0, limit=5, contest=False).index)
 
+
+
+def test_warming_builds_the_tables_the_chooser_will_ask_for():
+    """Not a second cache that looks similar: the keys have to be the ones
+    suggest_punts looks up, or the warming is wasted and the first chooser
+    still pays."""
+    import puntfit.draft as D
+    from puntfit.categories import NINE_CAT
+    from puntfit.valuation import load_projections
+
+    df, _ = load_projections(PROJECTIONS)
+    D._VALUES.clear()
+    built = D.warm_values(df, [NINE_CAT])
+    cached = sum(len(v[1]) for v in D._VALUES.values())
+    assert built == cached == 1 + 9 + 36 + 84 + 126     # none, then one to four
+
+    league = League(teams=12, rounds=13, categories=NINE_CAT)
+    state = DraftState(df, league)
+    state.make_pick(df.index[0])
+    before = sum(len(v[1]) for v in D._VALUES.values())
+    state.suggest_punts(df.index[0], 4, limit=12)
+    assert sum(len(v[1]) for v in D._VALUES.values()) == before, \
+        "the chooser computed a table that warming should already have built"

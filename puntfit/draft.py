@@ -87,6 +87,28 @@ def _value_cache(projections) -> dict:
 
 
 
+def warm_values(projections, formats, pool_size: int = DEFAULT_POOL) -> int:
+    """Build every punt table ahead of time.
+
+    The chooser needs one table per combination of punted categories, and the
+    first person to open it at four punts would otherwise wait for 126 of
+    them. All of them together are about half a second and twelve megabytes,
+    which is worth paying once at startup instead of once per draft night.
+
+    Goes through DraftState so the cache keys are the ones the chooser will
+    look up, rather than a second set that happens to look similar.
+    """
+    built = 0
+    for categories in formats:
+        league = League(teams=12, rounds=13, categories=tuple(categories))
+        state = DraftState(projections, league, pool_size=pool_size)
+        for size in range(league.max_punts + 1):
+            for punt in itertools.combinations(league.categories, size):
+                state.values(punt)
+                built += 1
+    return built
+
+
 @dataclass
 class DraftState:
     projections: pd.DataFrame

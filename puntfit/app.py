@@ -301,20 +301,28 @@ def health():
     set, rather than waiting until shared rooms are built to find out it was
     wrong. Reports the host but never the credential.
     """
+    _load()
+    # How many punt tables are built. Zero means the chooser will compute
+    # them on somebody's draft instead, which is the thing warming exists to
+    # avoid, so it is worth being able to see from outside.
+    from .draft import _VALUES
+    warm = sum(len(entry[1]) for entry in _VALUES.values())
+
     if not store.configured():
-        return {"database": "not configured",
+        return {"database": "not configured", "warm": warm,
                 "detail": "DATABASE_URL is unset; solo drafts work, shared "
                           "rooms are unavailable"}, 200
     try:
         store.ensure_schema()
         info = store.check()
         host = store.database_url().split("@")[-1].split("/")[0]
-        return {"database": "ok", "host": host,
+        return {"database": "ok", "host": host, "warm": warm,
                 "server": info["version"], "tables": info["tables"]}, 200
     except Exception as e:
         # The class name alone, because the message can carry the connection
         # string and this endpoint is public.
-        return {"database": "unreachable", "error": type(e).__name__}, 503
+        return {"database": "unreachable", "warm": warm,
+                "error": type(e).__name__}, 503
 
 
 @app.get("/draft-board.html")

@@ -13,6 +13,7 @@ import itertools
 import json
 from pathlib import Path
 
+import numpy as np
 import pandas as pd
 
 from .categories import NEGATIVE, NINE_CAT, RATIO, STAT_VIEW
@@ -117,23 +118,75 @@ def value_players(df: pd.DataFrame, cats=NINE_CAT,
     """
     cats = available_categories(df, cats)
     n = min(pool_size, len(df))
-    pool = df.nlargest(n, "proj_mpg").index
-    seen: set[frozenset] = set()
-    for _ in range(MAX_PASSES):
-        z = z_scores(category_values(df, cats, pool), cats, pool)
-        nxt = z[list(cats)].sum(axis=1).nlargest(n).index
-        if frozenset(nxt) == frozenset(pool) or frozenset(nxt) in seen:
-            pool = nxt
-            break
-        seen.add(frozenset(pool))
-        pool = nxt
 
-    z = z_scores(category_values(df, cats, pool), cats, pool)
+    # The same arithmetic as category_values and z_scores, on arrays.
+    #
+    # Those build about eighteen small Series per pass, and the pool takes
+    # several passes to settle, and the build chooser asks for this once per
+    # combination of categories - 126 of them for a four-category punt. The
+    # pandas overhead, not the arithmetic, was most of a second.
+    #
+    # Pool selection stays on pandas: nlargest decides ties in a particular
+    # way and the chosen pool determines every number that follows, so it is
+    # not worth reimplementing to save one call a pass.
+    index = df.index
+    columns = {}
+    for c in cats:
+        if c in RATIO:
+            made, att = RATIO[c]
+            columns[c] = (df[made].to_numpy(float), df[att].to_numpy(float))
+        else:
+            # A counting category does not depend on the pool, so its
+            # contribution is the same on every pass.
+            columns[c] = df[f"{c}_pg"].to_numpy(float)
+
+    def z_matrix(positions):
+        out = np.empty((len(index), len(cats)))
+        for j, c in enumerate(cats):
+            held = columns[c]
+            if isinstance(held, tuple):
+                made, att = held
+                v = made - (made[positions].sum() / att[positions].sum()) * att
+            else:
+                v = held
+            ref = v[positions]
+            sd = ref.std()                      # ddof=0, as before
+            if sd == 0:
+                out[:, j] = 0.0
+                continue
+            col = (v - ref.mean()) / sd
+            out[:, j] = -col if c in NEGATIVE else col
+        return out
+
+    # Positions throughout rather than labels. nlargest over a positional
+    # series breaks ties the same way - first occurrence wins, and the rows
+    # are in the same order either way - without translating five hundred
+    # names back to offsets on every pass.
+    positions = index.get_indexer(df.nlargest(n, "proj_mpg").index)
+    seen: set[frozenset] = set()
+    matrix, settled = None, False
+    for _ in range(MAX_PASSES):
+        matrix = z_matrix(positions)
+        nxt = pd.Series(matrix.sum(axis=1)).nlargest(n).index.to_numpy()
+        same = frozenset(nxt) == frozenset(positions)
+        if same or frozenset(nxt) in seen:
+            # When the pool has stopped moving, the matrix in hand was built
+            # on it already and does not need building again.
+            settled = same
+            positions = nxt
+            break
+        seen.add(frozenset(positions))
+        positions = nxt
+
+    if not settled:
+        matrix = z_matrix(positions)
+    pool = index[positions]
+    z = pd.DataFrame(matrix, index=index, columns=list(cats))
     # Mean rather than sum, matching Basketball Monster's "Value" column. The
     # ordering is identical either way, but a mean stays comparable across
     # formats: summing gives 9-cat scores an extra category of headroom over
     # 8-cat ones, and punting 3 categories would deflate every score.
-    z["total"] = z[list(cats)].mean(axis=1)
+    z["total"] = matrix.mean(axis=1)
     return z.sort_values("total", ascending=False), pool
 
 

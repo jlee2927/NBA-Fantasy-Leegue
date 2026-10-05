@@ -124,3 +124,48 @@ def test_converged_pool_reproduces_itself():
     again = (V.z_scores(V.category_values(df, cats, pool), cats, pool)[list(cats)]
              .sum(axis=1).nlargest(len(pool)).index)
     assert frozenset(again) == frozenset(pool)
+
+
+# ------------------------------------------------- the fast path is the path
+def _reference(df, cats, pool_size=V.DEFAULT_POOL):
+    """value_players written the slow, obvious way.
+
+    The real one does the same arithmetic on numpy arrays because the build
+    chooser calls it 126 times for a four-category punt and pandas overhead
+    was most of a second. This is what it has to agree with.
+    """
+    cats = V.available_categories(df, cats)
+    n = min(pool_size, len(df))
+    pool = df.nlargest(n, "proj_mpg").index
+    seen = set()
+    for _ in range(V.MAX_PASSES):
+        z = V.z_scores(V.category_values(df, cats, pool), cats, pool)
+        nxt = z[list(cats)].sum(axis=1).nlargest(n).index
+        if frozenset(nxt) == frozenset(pool) or frozenset(nxt) in seen:
+            pool = nxt
+            break
+        seen.add(frozenset(pool))
+        pool = nxt
+    z = V.z_scores(V.category_values(df, cats, pool), cats, pool)
+    z["total"] = z[list(cats)].mean(axis=1)
+    return z.sort_values("total", ascending=False), pool
+
+
+@pytest.mark.parametrize("punt", [(), ("tov",), ("fg", "ft"), ("tov", "fg", "ast")])
+def test_the_fast_valuation_matches_the_obvious_one(projections, punt):
+    import numpy as np
+
+    from puntfit.categories import NINE_CAT
+    kept = tuple(c for c in NINE_CAT if c not in punt)
+    want, want_pool = _reference(projections, kept)
+    got, got_pool = V.value_players(projections, kept)
+
+    # Ranking and the draftable pool must match exactly: they decide every
+    # number that follows.
+    assert list(got.index) == list(want.index)
+    assert sorted(got_pool) == sorted(want_pool)
+    # The values agree to floating point. Summing in a different order moves
+    # the last bit or two and nothing a reader could see.
+    np.testing.assert_allclose(got.to_numpy(), want.to_numpy(), atol=1e-11)
+    assert ([f"{v:+.1f}" for v in got.to_numpy().ravel()]
+            == [f"{v:+.1f}" for v in want.to_numpy().ravel()])

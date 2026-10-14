@@ -527,6 +527,41 @@ for _ in range(MAX_PASSES):
   </footer>
 
 </div>
+<script src="https://cdn.jsdelivr.net/npm/lenis@1.3.26/dist/lenis.min.js"></script>
+<script>
+// Smooth the scroll itself.
+//
+// The basketball turns with the page, so it inherits whatever the scroll
+// does - and a trackpad's native scroll arrives in steps, which the ball
+// shows as stepping rather than turning. Lenis interpolates between those
+// steps, so nothing about the ball had to change.
+//
+// It drives the real scroll position rather than faking one with a
+// transform, so ordinary scroll events still fire and anything listening for
+// them keeps working.
+(function () {
+  if (typeof Lenis !== 'function') return;          // CDN unreachable: native scroll
+  if (window.matchMedia('(prefers-reduced-motion: reduce)').matches) return;
+
+  var lenis = new Lenis({ duration: 1.1, smoothWheel: true });
+  function frame(time) {
+    lenis.raf(time);
+    requestAnimationFrame(frame);
+  }
+  requestAnimationFrame(frame);
+
+  // The in-page links should ease to their section rather than jump, now
+  // that everything else does.
+  document.querySelectorAll('a[href^="#"]').forEach(function (a) {
+    a.addEventListener('click', function (e) {
+      var target = document.querySelector(a.getAttribute('href'));
+      if (!target) return;
+      e.preventDefault();
+      lenis.scrollTo(target);
+    });
+  });
+})();
+</script>
 <script src="assets/ball.js"></script>
 <script>
 // Wake the draft assistant while this page is being read.

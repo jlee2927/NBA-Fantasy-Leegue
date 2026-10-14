@@ -12,6 +12,13 @@
   scroll-behavior: smooth;
 }
 /* Tailwind's reset supplied these in the original; the page relies on them. */
+/* Lenis needs these to take over scrolling. Inlined rather than fetched: it
+   is four lines, and a second request to render the page is a worse trade
+   than the bytes. */
+html.lenis, html.lenis body { height: auto; }
+.lenis:not(.lenis-autoToggle).lenis-stopped { overflow: clip; }
+.lenis [data-lenis-prevent] { overscroll-behavior: contain; }
+
 *, *::before, *::after { box-sizing: border-box; }
 body { margin: 0; }
 svg { display: block; }

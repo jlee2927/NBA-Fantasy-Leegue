@@ -336,6 +336,16 @@ PALETTES = {
 }
 
 
+def shade(v: float, cap: float = 3.0, palette: str = "cvd") -> str:
+    """The draft board's colour for a value, for use anywhere else.
+
+    Blue for good and red for bad rather than green and red: the green/red
+    pair is indistinguishable to a deuteranope, and these numbers are the
+    whole point of the page.
+    """
+    return _shade(v, PALETTES[palette], cap)
+
+
 def _shade(v: float, palette: dict, cap: float = 3.0) -> str:
     if pd.isna(v):
         return ""

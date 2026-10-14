@@ -319,3 +319,74 @@ class DraftState:
     def clear_punt(self, team: int) -> None:
         """Back to no build at all, so a manager can change their mind."""
         self.punts.pop(team, None)
+
+
+# ------------------------------------------------------------ team tables
+# A category's colour is always its z-score, even when the cell shows a
+# projected stat: the colour says how good, the number says how much. One
+# scale for the whole page beats inventing a separate one per category.
+TEAM_STAT = {"fg": ("fgm_pg", "fga_pg"), "ft": ("ftm_pg", "fta_pg")}
+
+
+def team_tables(state: "DraftState", projections, cats) -> list[dict]:
+    """Every team's roster, per category, as values and as projected stats.
+
+    Measured on unpunted z-scores whoever punted what, matching the standings
+    - a category somebody gave up still counts against them, so showing it as
+    a strength would be a lie about where they stand.
+    """
+    z = state.values()
+    table = state.standings()
+    ranks = table.rank(ascending=False, method="min").astype(int)
+    spread = float(table.abs().to_numpy().max()) or 1.0
+
+    out = []
+    for team in range(state.league.teams):
+        roster = state.roster(team)
+        known = [p for p in roster if p in projections.index]
+        players = []
+        for name in roster:
+            row = projections.loc[name] if name in projections.index else None
+            players.append({
+                "name": name,
+                "pos": "" if row is None else (row.get("pos") or ""),
+                "z": [float(z.loc[name, c]) if name in z.index else 0.0
+                      for c in cats],
+                "stats": [_stat_cell(row, c) for c in cats],
+            })
+
+        held = projections.loc[known] if known else None
+        out.append({
+            "seat": team,
+            "players": players,
+            "totals": [float(table.loc[team, c]) for c in cats],
+            "stat_totals": [_stat_total(held, c) for c in cats],
+            "ranks": [int(ranks.loc[team, c]) for c in cats],
+            "spread": spread,
+        })
+    return out
+
+
+def _stat_cell(row, cat: str) -> str:
+    if row is None:
+        return "—"
+    if cat in TEAM_STAT:
+        value = row.get(f"{cat}_pct")
+        return "—" if pd.isna(value) else f"{value:.3f}"
+    value = row.get(f"{cat}_pg")
+    return "—" if pd.isna(value) else f"{value:.1f}"
+
+
+def _stat_total(held, cat: str) -> str:
+    """A roster's combined projection for one category.
+
+    Percentages are recomputed from made and attempted rather than averaged:
+    the mean of two shooting percentages is not a team's shooting percentage.
+    """
+    if held is None or held.empty:
+        return "—"
+    if cat in TEAM_STAT:
+        made, att = TEAM_STAT[cat]
+        total = held[att].sum()
+        return "—" if not total else f"{held[made].sum() / total:.3f}"
+    return f"{held[f'{cat}_pg'].sum():.1f}"

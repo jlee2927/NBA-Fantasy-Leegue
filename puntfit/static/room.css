@@ -235,6 +235,40 @@ tbody tr:hover { background: rgba(244,241,233,.045); }
 .track-none { background: rgba(244,241,233,.06); color: var(--muted); }
 .track-none b { color: var(--muted); }
 
+/* --- team tables ------------------------------------------------------- */
+.team td, .team th { padding: 4px 7px; }
+.team .pos { font-size: 10px; }
+/* The cell's own background is the grade, so the row stripe would fight it. */
+.scroll .team tbody tr:hover td.grade { background-image: none; }
+.team tr.totals td { border-top: 1px solid rgba(244,241,233,.22); }
+.team tr.ranks td { font-size: 10px; letter-spacing: .06em; }
+.team tbody td:first-child { max-width: 170px; overflow: hidden;
+                             text-overflow: ellipsis; }
+
+.other-team { border-top: 1px solid var(--line); }
+.other-team summary {
+  cursor: pointer; list-style: none; padding: 9px 0; display: flex;
+  align-items: center; gap: 12px; flex-wrap: wrap;
+}
+.other-team summary::-webkit-details-marker { display: none; }
+.other-team summary:before {
+  content: '+'; display: grid; place-items: center; width: 16px; height: 16px;
+  border: 1px solid var(--muted); border-radius: 50%; color: var(--muted);
+  font-size: 11px; line-height: 1; flex: none;
+}
+.other-team[open] summary:before { content: '\2212'; }
+.other-team summary:hover .who { color: var(--accent); }
+.other-team .who {
+  font-family: 'Barlow Condensed', sans-serif; font-size: 17px; font-weight: 700;
+  min-width: 34px;
+}
+.rank-strip { display: flex; gap: 4px; flex-wrap: wrap; }
+.rank-strip .chip {
+  font-size: 9px; font-weight: 700; letter-spacing: .05em; padding: 2px 6px;
+  border-radius: 99px; background: rgba(244,241,233,.07); color: var(--muted);
+}
+.rank-strip .chip b { color: var(--ink); }
+
 /* --- results ----------------------------------------------------------- */
 .headline { display: flex; align-items: center; gap: 26px; flex-wrap: wrap; }
 .headline .big {

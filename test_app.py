@@ -73,9 +73,19 @@ def test_health_says_so_when_no_database_is_configured(client, monkeypatch):
 
 def test_health_never_leaks_the_credential(client, monkeypatch):
     """It is a public endpoint and the connection string holds a password."""
+    from puntfit import store
     monkeypatch.setenv("DATABASE_URL", "postgresql://u:secret@example/db")
-    body = client.get("/health").data.decode()
-    assert "secret" not in body and "postgresql://" not in body
+    try:
+        body = client.get("/health").data.decode()
+        assert "secret" not in body and "postgresql://" not in body
+    finally:
+        # The pool is module state and would otherwise be cached, pointing at
+        # a host invented for this test, for every test after it. Closed
+        # rather than dropped, or its worker threads outlive the run and
+        # complain on the way out.
+        if store._pool is not None:
+            store._pool.close()
+            store._pool = None
 
 
 def test_setup_page_renders(client):
@@ -116,8 +126,8 @@ def test_a_draft_survives_the_server_restarting(client):
     after = _text(client, room)
     assert re.search(r"Every pick \((\d+)\)", after).group(1) == \
            re.search(r"Every pick \((\d+)\)", before).group(1)
-    assert re.search(r"Your roster \((\d+)\)", after).group(1) == \
-           re.search(r"Your roster \((\d+)\)", before).group(1)
+    assert re.search(r"Your team \((\d+)\)", after).group(1) == \
+           re.search(r"Your team \((\d+)\)", before).group(1)
     assert "punting" in after.split("Best available")[0]
 
 
@@ -463,7 +473,7 @@ def test_automatic_picks_run_the_draft_out(client):
     room = _start(client, draft_mode="auto")
     page = _text(client, room)
     assert "Draft complete" in page
-    assert "Your roster (13)" in page
+    assert "Your team (13)" in page
 
 
 def test_the_builds_are_offered_in_order_of_fit(client):
@@ -652,3 +662,48 @@ def test_adp_is_not_folded_into_value(client):
     # The board is still ordered by value, descending, with ADP alongside.
     vals = [float(v) for v in re.findall(r"<strong>(\\d\\.\\d\\d)</strong>", body)]
     assert vals == sorted(vals, reverse=True)
+
+
+# ------------------------------------------------------------- team tables
+def test_your_team_sits_above_the_board(client):
+    """It is there to be read before picking, not after scrolling past the
+    players."""
+    page = client.get(_start(client)).data.decode()
+    assert page.index("Your team") < page.index("Best available")
+
+
+def test_your_team_grades_every_player_and_totals_them(client):
+    room = _start(client)
+    client.post(f"{room}/pick", data={"player": _first_player(client, room)})
+    page = client.get(room).data.decode()
+    panel = page.split("Your team")[1].split("The league")[0]
+    assert "background-color: rgba(" in panel      # the board's colour scale
+    assert "Total" in panel and "Rank" in panel
+
+
+def test_the_league_shows_ranks_and_opens_each_team(client):
+    """Ranks for everybody, players for whoever you ask about."""
+    page = client.get(_start(client, teams="8")).data.decode()
+    league = page.split("The league")[1].split("Best available")[0]
+    assert league.count("<details") == 7           # the other seven seats
+    assert all(f"T{t}" in league for t in range(2, 9))
+
+
+def test_the_team_panel_switches_to_projected_stats(client):
+    room = _start(client)
+    client.post(f"{room}/pick", data={"player": _first_player(client, room)})
+    client.post(f"{room}/settings", data={"team_view": "stats"})
+    panel = client.get(room).data.decode().split("Your team")[1].split("The league")[0]
+    # A shooting percentage, which the z-score view never prints.
+    assert re.search(r">\s*0\.\d{3}\s*<", panel)
+
+
+def test_the_panels_it_replaced_are_gone(client):
+    """Showing a manager two copies of their own category totals invites
+    them to look like different numbers."""
+    room = _start(client)
+    # The chasing table only appears once there is a roster to chase with.
+    client.post(f"{room}/pick", data={"player": _first_player(client, room)})
+    page = client.get(room).data.decode()
+    assert "Your roster (" not in page
+    assert page.count("What you&#39;re chasing") + page.count("What you're chasing") == 1

@@ -27,11 +27,11 @@ from flask import (Flask, make_response, redirect, render_template, request,
 from . import managers as Mg
 from .categories import FORMATS, label as cat_label
 from .draft import (MAX_EMPHASIS, NEUTRAL_EMPHASIS, DraftState, League,
-                    warm_values)
+                    team_tables, warm_values)
 from .positions import apply_overrides, derive, disagreements, roster_view
 from . import shared, store
 from .fetch_injuries import label as label_injuries
-from .valuation import (last_season, load_projections, stat_headings,
+from .valuation import (last_season, load_projections, shade, stat_headings,
                         stat_table)
 
 # The landing page is the same files GitHub Pages serves, not a copy of them,
@@ -48,6 +48,7 @@ ADP = Path("data/adp.csv")
 app = Flask(__name__)
 # Categories are keyed by their column name and shown by their fantasy name.
 app.jinja_env.filters["cat"] = cat_label
+app.jinja_env.globals["shade"] = shade
 app.jinja_env.filters["cats"] = lambda seq: [cat_label(c) for c in seq]
 app.config["PROJECTIONS"] = PROJECTIONS
 
@@ -390,6 +391,7 @@ def create():
         # from; the raw projections are a click away for anyone who reads the
         # categories faster that way.
         "view": "value",
+        "team_view": "value",
     }
     _rooms[room_id] = room
     _advance(room)
@@ -540,6 +542,7 @@ def room(room_id: str):
                                      limit=BUILDS_OFFERED[room["build_mode"]])
 
     slots = roster_view(mine, app.config["positions"], state.league.rounds)
+    teams = team_tables(state, players, list(state.league.categories))
 
     # Our ranking against the room's. A positive edge means the market
     # takes him later than we rate him, which is the only place a draft is
@@ -578,6 +581,7 @@ def room(room_id: str):
         weights=state.weights(seat) if mine else None,
         auto_weights=state.category_weights(seat) if mine else None,
         emphasis=state.emphasis.get(seat, {}), slots=slots,
+        teams=teams, team_view=room.get("team_view", "value"),
         adp=adp, bargains=bargains, has_adp=bool(len(edge)),
         max_emphasis=MAX_EMPHASIS,
         confirm_restart=request.args.get("restart") == "1",
@@ -730,6 +734,8 @@ def settings(room_id: str):
         value = request.form.get(key)
         if value in {"auto", "manual"}:
             room[key] = value
+    if request.form.get("team_view") in {"value", "stats"}:
+        room["team_view"] = request.form["team_view"]
     if request.form.get("view") in {"value", "stats", "both", "last"}:
         room["view"] = request.form["view"]
     if room.get("shared") and room["seat"] is not None:

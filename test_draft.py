@@ -4,7 +4,7 @@ import pandas as pd
 import pytest
 
 import puntfit.valuation as V
-from puntfit.draft import DraftState, League
+from puntfit.draft import DraftState, League, team_tables
 
 PROJECTIONS = Path(__file__).parent / "data" / "marcel_projections.json"
 
@@ -293,3 +293,28 @@ def test_warming_builds_the_tables_the_chooser_will_ask_for():
     state.suggest_punts(df.index[0], 4, limit=12)
     assert sum(len(v[1]) for v in D._VALUES.values()) == before, \
         "the chooser computed a table that warming should already have built"
+
+
+def test_a_team_percentage_is_not_the_average_of_two_percentages(projections):
+    """A roster shooting .400 on 20 attempts and .800 on 2 is not a .600
+    team. It has to come back to makes over attempts."""
+    from puntfit.categories import FORMATS
+    league = League(teams=2, rounds=2, categories=FORMATS["9cat"])
+    state = DraftState(projections, league)
+    for name in projections.nlargest(4, "proj_mpg").index:
+        state.make_pick(name)
+
+    team = team_tables(state, projections, list(league.categories))[0]
+    held = projections.loc[state.roster(0)]
+    want = held.fgm_pg.sum() / held.fga_pg.sum()
+    assert team["stat_totals"][list(league.categories).index("fg")] == f"{want:.3f}"
+
+
+def test_team_tables_cover_every_seat_including_empty_ones(projections):
+    from puntfit.categories import FORMATS
+    league = League(teams=6, rounds=2, categories=FORMATS["9cat"])
+    state = DraftState(projections, league)
+    state.make_pick(projections.index[0])
+    tables = team_tables(state, projections, list(league.categories))
+    assert len(tables) == 6
+    assert tables[0]["players"] and not tables[5]["players"]

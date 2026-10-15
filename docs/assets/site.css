@@ -16,6 +16,7 @@
    is four lines, and a second request to render the page is a worse trade
    than the bytes. */
 html.lenis, html.lenis body { height: auto; }
+/* Added to <html> by Lenis at runtime, so they are never in the markup. */
 .lenis:not(.lenis-autoToggle).lenis-stopped { overflow: clip; }
 .lenis [data-lenis-prevent] { overscroll-behavior: contain; }
 
@@ -73,7 +74,7 @@ h1, h2, .watch-card h3 {
 
 /* --- hero stage -------------------------------------------------------- */
 .story-stage {
-  position: relative; min-height: 185vh;
+  position: relative; min-height: 155vh;
   background: radial-gradient(ellipse 35% 42% at 80% 31%, #29221c 0%, transparent 100%), #101310;
 }
 .story-stage:before {
@@ -109,12 +110,6 @@ h1, h2, .watch-card h3 {
   border-radius: 50%; box-shadow: 28px 42px 75px rgba(0,0,0,.56);
 }
 .basketball canvas { display: block; width: 100%; height: 100%; border-radius: 50%; }
-.orbit-label {
-  position: absolute; color: #999b92; font-size: 10px; letter-spacing: .17em;
-  font-weight: 700; white-space: nowrap;
-}
-.orbit-label-top { top: 14%; right: 10%; }
-.orbit-label-bottom { bottom: 12%; left: 8%; }
 
 .hero, .advantage { position: relative; z-index: 2; }
 .hero { min-height: 100vh; display: flex; flex-direction: column; justify-content: center; padding-top: 100px; }
@@ -144,39 +139,10 @@ h1, h2, .watch-card h3 {
 }
 .text-link:hover { color: #eb7842; }
 .text-link svg { width: 18px; height: 18px; }
-.hero-bottom {
-  position: absolute; bottom: 31px; left: 0; right: 0; display: flex;
-  align-items: center; gap: 19px; color: #8b9088; font-size: 10px;
-  font-weight: 700; letter-spacing: .16em;
-}
-.hero-bottom .scroll-line { display: inline-block; width: 70px; height: 1px; background: #62675f; }
-.hero-bottom span:last-child { margin-left: auto; }
 
 /* --- advantage --------------------------------------------------------- */
-.advantage { min-height: 85vh; display: flex; align-items: center; padding-block: 110px; }
-.advantage-copy { width: 45%; max-width: 590px; }
-.advantage h2 { font-size: clamp(74px, 8vw, 125px); line-height: .84; margin: 30px 0; }
-.section-intro { max-width: 380px; color: #aeb4a9; line-height: 1.6; font-size: 14px; }
-.benefits-list { margin-top: 40px; border-top: 1px solid #414840; }
-.benefit {
-  display: grid; grid-template-columns: 38px 1fr 20px; gap: 9px;
-  padding: 17px 0; border-bottom: 1px solid #414840;
-}
-.benefit-number { padding-top: 5px; color: #e77942; font-size: 10px; font-weight: 700; }
-.benefit h3 { font-size: 16px; font-weight: 700; margin-bottom: 4px; }
-.benefit p { color: #9fa69d; font-size: 11px; line-height: 1.55; max-width: 380px; }
-.benefit-plus { color: #e77942; font-size: 22px; font-weight: 300; line-height: 1; }
 
 /* --- marquee ----------------------------------------------------------- */
-.marquee {
-  overflow: hidden; background: #e77942; color: #111712; height: 67px;
-  display: flex; align-items: center; white-space: nowrap;
-}
-.marquee div {
-  font-family: 'Barlow Condensed', sans-serif; font-size: 38px; line-height: 1;
-  font-weight: 800; letter-spacing: .02em; transform: translateX(-20px);
-}
-.marquee span { margin: 0 19px; font-size: 30px; }
 
 /* --- methodology ------------------------------------------------------- */
 .process-section { background: #edece5; color: #171c18; padding: 120px 0 35px; }
@@ -267,44 +233,6 @@ pre.code .s { color: #e0a06d; }
 }
 
 /* --- watchlist --------------------------------------------------------- */
-.watch-section { padding: 120px 0 100px; background: #151a17; }
-.watch-header { display: flex; justify-content: space-between; align-items: end; margin-bottom: 60px; gap: 40px; }
-.watch-header h2 { font-size: clamp(100px, 11vw, 165px); line-height: .8; margin-top: 35px; }
-.watch-header-aside { max-width: 260px; }
-.watch-asterisk { color: #e77942; font-size: 60px; line-height: 1; }
-.watch-header-aside p { color: #adb4a9; font-size: 13px; line-height: 1.7; margin-top: 20px; }
-.watch-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 12px; }
-.watch-card {
-  position: relative; min-height: 390px; padding: 19px; display: flex;
-  flex-direction: column; overflow: hidden; color: #161a15;
-}
-.watch-orange { background: #e7804a; }
-.watch-olive { background: #a9ae8f; }
-.watch-clay { background: #c7a58a; }
-.watch-slate { background: #8d9f9c; }
-.watch-card-top {
-  display: flex; justify-content: space-between; font-size: 10px; font-weight: 700;
-  letter-spacing: .13em; position: relative; z-index: 2;
-}
-.watch-card-graphic { position: absolute; inset: 0; display: grid; place-items: center; overflow: hidden; }
-.watch-card-graphic > span {
-  font-family: 'Barlow Condensed', sans-serif; font-size: clamp(220px, 22vw, 380px);
-  font-weight: 800; line-height: 1; opacity: .11; transform: rotate(-12deg) translateY(-5px);
-}
-.watch-ring {
-  position: absolute; width: 72%; aspect-ratio: 1; border: 1px solid rgba(26,29,23,.23);
-  border-radius: 50%; top: 19%; left: 14%;
-}
-.watch-ring:before, .watch-ring:after { content: ''; position: absolute; background: rgba(26,29,23,.22); }
-.watch-ring:before { width: 1px; height: 140%; top: -20%; left: 50%; }
-.watch-ring:after { height: 1px; width: 140%; left: -20%; top: 50%; }
-.watch-card-bottom {
-  margin-top: auto; position: relative; z-index: 2;
-  border-top: 1px solid rgba(26,29,23,.4); padding-top: 13px;
-}
-.watch-card h3 { font-size: clamp(36px, 3.5vw, 54px); line-height: .94; }
-.watch-card p { max-width: 220px; font-size: 11px; line-height: 1.5; margin-top: 10px; }
-.watch-disclaimer { color: #7f8a80; font-size: 9px; font-weight: 700; letter-spacing: .15em; margin-top: 20px; }
 
 /* --- closing ----------------------------------------------------------- */
 .closing-section {
@@ -374,23 +302,18 @@ pre.code .s { color: #e0a06d; }
   .ball-orbit { width: min(91vw, 470px); bottom: 7%; }
   .orbit-two { width: 115vw; bottom: 1%; }
   .ball-glow { width: 100vw; bottom: 1%; }
-  .orbit-label { display: none; }
-  .hero { min-height: max(920px, 100svh); justify-content: flex-start; padding-top: 132px; }
+    .hero { min-height: max(920px, 100svh); justify-content: flex-start; padding-top: 132px; }
   .hero-copy { padding: 0; }
   .hero h1 { font-size: clamp(88px, 16vw, 135px); margin: 28px 0 21px; }
   .hero-description { max-width: 370px; font-size: 13px; line-height: 1.55; }
   .hero-actions { margin-top: 22px; gap: 16px; flex-wrap: wrap; }
   .button { min-height: 48px; padding: 0 14px; font-size: 10px; gap: 12px; }
   .text-link { font-size: 10px; }
-  .hero-bottom { bottom: 22px; font-size: 8px; }
-  .hero-bottom .scroll-line { width: 25px; }
-  .advantage { min-height: 0; padding: 90px 0; background: #101310; }
+      .advantage { min-height: 0; padding: 90px 0; background: #101310; }
   .advantage-copy { width: 100%; max-width: none; }
   .advantage h2 { font-size: clamp(77px, 15vw, 120px); }
   .benefits-list { margin-top: 30px; }
-  .marquee { height: 53px; }
-  .marquee div { font-size: 30px; }
-  .process-section { padding: 80px 0 27px; }
+      .process-section { padding: 80px 0 27px; }
   .process-header { display: block; margin-bottom: 40px; }
   .process-header h2 { font-size: clamp(68px, 12vw, 100px); margin-top: 24px; }
   .process-header p { margin-top: 30px; }

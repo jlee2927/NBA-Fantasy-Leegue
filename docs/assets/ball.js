@@ -26,7 +26,9 @@
   var LEATHER = [206, 98, 43];
   var SEAM = [38, 24, 18];
   var LIGHT = [-0.34, 0.44, 0.83];   // pointing at the ball from upper left, front
-  var TURNS = 3;                      // full rotations across the scroll stage
+  // Two turns, not three: the stage lost a section and with it a third of
+  // its scroll, so three turns here would spin faster than it reads.
+  var TURNS = 2;
 
   // Seam geometry. The two straight seams are great circles through the poles;
   // the two curved ones ride up and down in latitude, bulging where they meet

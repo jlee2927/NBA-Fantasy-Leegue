@@ -95,7 +95,7 @@ body {
 .site-bar a.back:hover { color: var(--accent); }
 
 /* --- structure --------------------------------------------------------- */
-.wrap { max-width: 1240px; margin: 0 auto; padding: 20px 16px 48px; }
+.wrap { max-width: 1240px; margin: 0 auto; padding: 14px 16px 48px; }
 a { color: var(--accent); }
 h1 {
   font-family: 'Barlow Condensed', sans-serif; font-size: 34px; font-weight: 800;
@@ -234,6 +234,48 @@ tbody tr:hover { background: rgba(244,241,233,.045); }
 .track b { font-weight: 700; color: var(--ink); }
 .track-none { background: rgba(244,241,233,.06); color: var(--muted); }
 .track-none b { color: var(--muted); }
+
+/* --- folds ------------------------------------------------------------- */
+/* The room is read a row at a time with a clock running, so only what is
+   needed for the next pick stays open. Everything else is one click away and
+   costs no vertical space until it is asked for. */
+.folds { margin-top: 10px; border-top: 1px solid var(--line); }
+.fold { border-bottom: 1px solid var(--line); }
+.build-fold { border: 0; }
+.fold > summary {
+  cursor: pointer; list-style: none; padding: 9px 0; display: flex;
+  align-items: center; gap: 9px; font-size: 10px; font-weight: 700;
+  letter-spacing: .15em; text-transform: uppercase; color: var(--accent);
+}
+.fold > summary::-webkit-details-marker { display: none; }
+.fold > summary:before {
+  content: '+'; display: grid; place-items: center; width: 16px; height: 16px;
+  border: 1px solid currentColor; border-radius: 50%; font-size: 11px;
+  font-weight: 400; line-height: 1; flex: none;
+}
+.fold[open] > summary:before { content: '\2212'; }
+.fold > summary:hover { color: #f0a077; }
+.fold-body { padding-bottom: 12px; }
+
+.panel-head {
+  display: flex; justify-content: space-between; align-items: baseline;
+  gap: 12px; flex-wrap: wrap; margin-bottom: 8px;
+}
+/* A forty-row board and a comparison table cannot both fit a screen. So the
+   comparison stops scrolling instead: it pins under the header and stays
+   there while the board moves beneath it, which is what "see both at once"
+   actually needs. */
+.panel.compact {
+  position: sticky; top: 47px; z-index: 18;
+  background: rgba(14,17,14,.97); backdrop-filter: blur(11px);
+}
+.compact .scroll { max-height: 40vh; }
+.board-row .scroll { max-height: 64vh; }
+
+/* Tighter rows: every pixel here is a pixel of board. */
+.fold > summary { padding: 5px 0; }
+.compact .team td, .compact .team th { padding: 3px 7px; }
+.compact .totals .raw { opacity: .75; font-size: 9px; }
 
 /* --- team tables ------------------------------------------------------- */
 .team td, .team th { padding: 4px 7px; }

@@ -138,9 +138,14 @@
 
 {% if auto %}
 <div class="panel" style="margin-bottom:16px">
-  <h2>
-    {% if state.punts.get(seat) %}Change your build{% else %}Choose your build{% endif %}
-  </h2>
+  {# Open while there is no build, because that is the decision in front of
+     you. Once one is set it folds: changing it is rare, and 126 rows of
+     alternatives between the banner and the board is not. #}
+  <details class="fold build-fold" {% if not state.punts.get(seat) %}open{% endif %}>
+    <summary>
+      {% if state.punts.get(seat) %}Change your build{% else %}Choose your build{% endif %}
+    </summary>
+    <div class="fold-body">
 
   <form method="get" action="{{ url_for('room', room_id=room_id) }}"
         style="margin-bottom:12px">
@@ -192,6 +197,8 @@
       ordered by how well each suits {{ mine[0] }}
     </span>
   </form>
+    </div>
+  </details>
 </div>
 {% endif %}
 
@@ -226,9 +233,8 @@
   </tr>
 {% endmacro %}
 
-<div class="panel" style="margin-bottom:16px">
-  <div style="display:flex; justify-content:space-between; align-items:baseline;
-              gap:12px; flex-wrap:wrap">
+<div class="panel compact" style="margin-bottom:16px">
+  <div class="panel-head">
     <h2 style="margin:0">Your team ({{ mine|length }})</h2>
     <form method="post" action="{{ url_for('settings', room_id=room_id) }}">
       <label>Show
@@ -240,80 +246,110 @@
       <noscript><button type="submit">apply</button></noscript>
     </form>
   </div>
-  <p class="muted" style="font-size:11px; margin:0 0 8px">
-    Colour is always the standardised value, so blue is good and red is bad
-    whichever numbers are showing. Rank is out of {{ state.league.teams }}, on
-    every category &mdash; including any you punted, because they still count
-    against you.
-  </p>
 
+  {# Totals and rank stay open: that is the comparison, and it is two rows.
+     Everything behind them is detail somebody asks for, not something they
+     read on every pick, so it folds away and the board stays on screen. #}
   <div class="scroll">
   <table class="team">
     <thead><tr>
-      <th>Player</th><th>Pos</th>
-      {% for c in cats %}<th class="n">{{ c|cat }}</th>{% endfor %}
+      <th></th>{% for c in cats %}<th class="n">{{ c|cat }}</th>{% endfor %}
     </tr></thead>
-    <tbody>{{ team_rows(teams[seat], cats, team_view) }}</tbody>
+    <tbody>
+      <tr class="totals">
+        <td><strong>Total</strong></td>
+        {% for c in cats %}
+          <td class="n grade" style="{{ shade(teams[seat].totals[loop.index0], teams[seat].spread) }}">
+            <strong>{{ '%+.1f'|format(teams[seat].totals[loop.index0]) if team_view == 'value' else teams[seat].stat_totals[loop.index0] }}</strong>
+            <span class="raw">{{ teams[seat].ranks[loop.index0] }}/{{ state.league.teams }}</span>
+          </td>
+        {% endfor %}
+      </tr>
+    </tbody>
   </table>
   </div>
 
-  {% if totals is not none %}
-  <h2 style="margin-top:16px">What you're chasing</h2>
-  <p class="muted" style="font-size:11px; margin:-4px 0 8px">
-    Set automatically from where you stand &mdash; a category you have locked
-    up or lost stops being chased. Drag to override.
-  </p>
-  <form method="post" action="{{ url_for('emphasis', room_id=room_id) }}">
-    <div class="scroll">
-    <table>
-      <thead><tr>
-        <th>Cat</th>{% for c in cats %}<th class="n">{{ c|cat }}</th>{% endfor %}
-      </tr></thead>
-      <tr>
-        <td class="muted">Chase</td>
-        {% for c in cats %}<td class="n muted">{{ '%.2f'|format(weights[c]) }}</td>{% endfor %}
-      </tr>
-      <tr>
-        <td class="muted">Adjust</td>
-        {% for c in cats %}
-        <td class="n">
-          <input type="range" name="w_{{ c }}" min="0" max="{{ max_emphasis }}"
-                 step="0.25" style="width:54px" value="{{ emphasis.get(c, 1.0) }}">
-        </td>
-        {% endfor %}
-      </tr>
-    </table>
-    </div>
-    <div style="margin-top:8px; display:flex; gap:6px">
-      <button class="go" type="submit">Apply</button>
-      <button type="submit" name="reset" value="1">Reset</button>
-    </div>
-  </form>
-  {% endif %}
+  <div class="folds">
+    <details class="fold">
+      <summary>Your {{ mine|length }} player{{ '' if mine|length == 1 else 's' }}</summary>
+      <div class="scroll fold-body">
+      <table class="team">
+        <thead><tr>
+          <th>Player</th><th>Pos</th>
+          {% for c in cats %}<th class="n">{{ c|cat }}</th>{% endfor %}
+        </tr></thead>
+        <tbody>{{ team_rows(teams[seat], cats, team_view) }}</tbody>
+      </table>
+      </div>
+    </details>
 
-  <h2 style="margin-top:16px">The league</h2>
-  {% for t in teams %}{% if t.seat != seat %}
-  <details class="other-team">
-    <summary>
-      <span class="who">T{{ t.seat + 1 }}</span>
-      <span class="rank-strip">
-        {% for c in cats %}
-        <span class="chip" title="{{ c|cat }}">{{ c|cat }} <b>{{ t.ranks[loop.index0] }}</b></span>
-        {% endfor %}
-      </span>
-    </summary>
-    <div class="scroll" style="margin-top:8px">
-    <table class="team">
-      <thead><tr>
-        <th>Player</th><th>Pos</th>
-        {% for c in cats %}<th class="n">{{ c|cat }}</th>{% endfor %}
-      </tr></thead>
-      <tbody>{{ team_rows(t, cats, team_view) }}</tbody>
-    </table>
-    </div>
-  </details>
-  {% endif %}{% endfor %}
+    {% if totals is not none %}
+    <details class="fold">
+      <summary>What you're chasing</summary>
+      <div class="fold-body">
+      <p class="muted" style="font-size:11px; margin:0 0 8px">
+        Set automatically from where you stand. A category you have locked up
+        or lost stops being chased. Drag to override.
+      </p>
+      <form method="post" action="{{ url_for('emphasis', room_id=room_id) }}">
+        <div class="scroll">
+        <table>
+          <thead><tr>
+            <th>Cat</th>{% for c in cats %}<th class="n">{{ c|cat }}</th>{% endfor %}
+          </tr></thead>
+          <tr>
+            <td class="muted">Chase</td>
+            {% for c in cats %}<td class="n muted">{{ '%.2f'|format(weights[c]) }}</td>{% endfor %}
+          </tr>
+          <tr>
+            <td class="muted">Adjust</td>
+            {% for c in cats %}
+            <td class="n">
+              <input type="range" name="w_{{ c }}" min="0" max="{{ max_emphasis }}"
+                     step="0.25" style="width:54px" value="{{ emphasis.get(c, 1.0) }}">
+            </td>
+            {% endfor %}
+          </tr>
+        </table>
+        </div>
+        <div style="margin-top:8px; display:flex; gap:6px">
+          <button class="go" type="submit">Apply</button>
+          <button type="submit" name="reset" value="1">Reset</button>
+        </div>
+      </form>
+      </div>
+    </details>
+    {% endif %}
+
+    <details class="fold">
+      <summary>The league</summary>
+      <div class="fold-body">
+      {% for t in teams %}{% if t.seat != seat %}
+      <details class="other-team">
+        <summary>
+          <span class="who">T{{ t.seat + 1 }}</span>
+          <span class="rank-strip">
+            {% for c in cats %}
+            <span class="chip" title="{{ c|cat }}">{{ c|cat }} <b>{{ t.ranks[loop.index0] }}</b></span>
+            {% endfor %}
+          </span>
+        </summary>
+        <div class="scroll" style="margin-top:8px">
+        <table class="team">
+          <thead><tr>
+            <th>Player</th><th>Pos</th>
+            {% for c in cats %}<th class="n">{{ c|cat }}</th>{% endfor %}
+          </tr></thead>
+          <tbody>{{ team_rows(t, cats, team_view) }}</tbody>
+        </table>
+        </div>
+      </details>
+      {% endif %}{% endfor %}
+      </div>
+    </details>
+  </div>
 </div>
+
 
 <div class="board-row">
   <div class="panel">

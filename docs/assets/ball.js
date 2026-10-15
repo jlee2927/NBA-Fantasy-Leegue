@@ -17,6 +17,13 @@
   var canvas = document.querySelector('[data-ball]');
   if (!stage || !canvas) return;
 
+  // The court rises on the same scroll that turns the ball, so it reads as
+  // one movement rather than two things animating near each other. Driven
+  // from this handler rather than a second library: the progress is already
+  // computed here, and the handler is already throttled to one frame.
+  var visual = document.querySelector('[data-visual]');
+  var COURT_FROM = 0.34;        // the ball has the stage to itself until here
+
   var context = canvas.getContext('2d');
   if (!context) return;
 
@@ -138,12 +145,19 @@
     frame = 0;
     var resized = prepare();
 
-    var angle = 0;
-    if (!reducedMotion.matches) {
-      var box = stage.getBoundingClientRect();
-      var travel = Math.max(1, box.height - window.innerHeight);
-      var progress = Math.min(1, Math.max(0, -box.top / travel));
-      angle = progress * Math.PI * 2 * TURNS;
+    var box = stage.getBoundingClientRect();
+    var travel = Math.max(1, box.height - window.innerHeight);
+    var progress = Math.min(1, Math.max(0, -box.top / travel));
+    var angle = reducedMotion.matches ? 0 : progress * Math.PI * 2 * TURNS;
+
+    if (visual) {
+      // 0 until the court is due, then 0 to 1 over the rest of the stage.
+      var rise = reducedMotion.matches ? 1
+        : Math.min(1, Math.max(0, (progress - COURT_FROM) / (1 - COURT_FROM)));
+      // Eased, so the court settles rather than arriving at a constant rate.
+      var eased = rise * rise * (3 - 2 * rise);
+      visual.style.setProperty('--rise', eased.toFixed(3));
+      visual.style.setProperty('--court-in', (eased * 0.92).toFixed(3));
     }
 
     // Skip frames the eye could not tell apart.

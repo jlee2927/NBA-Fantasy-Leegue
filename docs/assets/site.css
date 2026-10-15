@@ -105,11 +105,54 @@ h1, h2, .watch-card h3 {
   background: #e87840; top: 13%; left: 15%;
 }
 .orbit-one:after { top: auto; left: auto; bottom: 20%; right: 8%; width: 4px; height: 4px; }
+/* The court, lying flat and seen from above and to one side. A real
+   isometric projection rather than a perspective one: parallel lines stay
+   parallel, which is what makes it read as a drawing of a floor rather than
+   a photograph of one.
+
+   --rise and --court-in are written by the scroll handler. Only transform
+   and opacity change, so this stays on the compositor. */
+.court-iso {
+  position: absolute;
+  width: min(118%, 1240px);
+  aspect-ratio: 1;
+  opacity: var(--court-in, 0);
+  transform:
+    translateY(calc(26% - var(--rise, 0) * 16%))
+    rotateX(64deg)
+    rotateZ(-38deg)
+    scale(calc(0.86 + var(--rise, 0) * 0.14));
+  transform-origin: 50% 50%;
+  pointer-events: none;
+  will-change: transform, opacity;
+}
+.court-iso svg { width: 100%; height: 100%; overflow: visible; }
+.court-iso .lines {
+  fill: none;
+  stroke: rgba(232,120,64,.52);
+  stroke-width: 2.6;
+  vector-effect: non-scaling-stroke;
+}
+.court-iso .paint { fill: rgba(232,120,64,.10); }
+
+/* Nothing moves, so the court is simply there, flat against the ball, rather
+   than waiting for a scroll that will never animate it in. */
+@media (prefers-reduced-motion: reduce) {
+  .court-iso { opacity: .5; }
+}
+
 .basketball {
   position: relative; width: min(43vw, 600px); aspect-ratio: 1; flex: none;
   border-radius: 50%; box-shadow: 28px 42px 75px rgba(0,0,0,.56);
 }
 .basketball canvas { display: block; width: 100%; height: 100%; border-radius: 50%; }
+/* The ball gives way as the court arrives: it is the same subject seen twice,
+   not two things competing for the middle of the screen. */
+.basketball {
+  transform: translateY(calc(var(--rise, 0) * -17%)) scale(calc(1 - var(--rise, 0) * 0.42));
+  transform-origin: 50% 50%;
+  will-change: transform;
+}
 
 .hero, .advantage { position: relative; z-index: 2; }
 .hero { min-height: 100vh; display: flex; flex-direction: column; justify-content: center; padding-top: 100px; }
